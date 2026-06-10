@@ -1,0 +1,24 @@
+# Secrets — never commit
+.env
+*.env
+!*.env.example
+**/.token*
+
+# Large data artifacts (live in S3 / pulled on Colab)
+data_acquisition/data/
+modeling/checkpoints/
+*.parquet
+*.npz
+
+# Python
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.venv/
+venv/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

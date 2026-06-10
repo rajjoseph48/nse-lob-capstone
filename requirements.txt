@@ -1,0 +1,14 @@
+torch
+torchvision
+pyarrow
+kaggle
+scikit-learn
+pandas
+numpy
+matplotlib
+seaborn
+
+# mamba-ssm is NOT included — requires CUDA (not available on Mac).
+# MambaLOB automatically falls back to the pure-PyTorch SSM on CPU/MPS.
+# Install mamba-ssm only in Colab (GPU runtime) via:
+#   pip install mamba-ssm causal-conv1d
