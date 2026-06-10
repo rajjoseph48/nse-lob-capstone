@@ -54,8 +54,11 @@ this file is what actually gets done.
       train May 12–Jun 4 (15d) / val last 10% / test Jun 5,8,9,10. Validated on a roll-spanning subset:
       both contracts stitched, balanced labels (Down 38% / Stat 24% / Up 38%), `(100,40)` windows. ✅
 - [ ] Colab: build `mamba-ssm` + `causal-conv1d` (verify import). Pull `fi2010_dataset.py`/`models.py`/`train.py`.
-- [ ] Colab: run FI-2010 smoke (DeepLOB KESKO H=10), then launch **E1 reproduction**: DeepLOB + MLPLOB × horizons {10,20,50,100}. **Save results CSV + checkpoints to S3/Drive** (the bit that was lost last time).
-- **Acceptance gate:** DeepLOB FI-2010 H=10 macro-F1 ∈ 80–84% (paper 83.4%). If miss → debug labels/normalization before proceeding.
+- [x] Colab notebook built: **`notebooks/fi2010_reproduction.ipynb`** — smoke test → DeepLOB + MLPLOB ×
+      horizons {10,20,50,100} on CF_7 → full metrics (macro/weighted F1, per-class, MCC, confusion) →
+      acceptance test → figures → **persist results + checkpoints to S3/Drive** (the bit lost last time).
+- [ ] **Run it on a Colab GPU** (set `REPO_URL` or use the upload fallback; provide FI-2010 via Kaggle/Drive).
+- **Acceptance gate:** DeepLOB FI-2010 H=10 macro-F1 in the literature band (~78–86%, paper 83.4%). If miss → debug labels/normalization before proceeding.
 
 ### Day 2 (Wed Jun 11) — TLOB
 - [ ] Clone `LeonardoBerti00/TLOB`; run their FI-2010 pipeline to confirm ≈92.8% F1 (sanity that the repo + data line up).
