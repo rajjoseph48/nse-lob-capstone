@@ -52,12 +52,21 @@ cp data_acquisition/.env.example data_acquisition/.env   # then fill in tokens
 ```
 
 - **Local (Mac, MPS)** = preprocessing, data checks, smoke tests only.
-- **All real training runs on Colab GPU** (`mamba-ssm` is CUDA-only; the Mac falls back
-  to a pure-PyTorch Mamba that is ~100× slower). See `modeling/colab_quickstart.py`.
+- **All real training runs on a cloud GPU** (`mamba-ssm` is CUDA-only; the Mac falls back
+  to a pure-PyTorch Mamba that is ~100× slower).
+
+### Notebooks run on Colab **or** Kaggle
+The notebooks in `notebooks/` auto-detect the host via `modeling/nbenv.py`:
+- **Secrets** — `nbenv.get_secret()` reads from Kaggle `UserSecretsClient`, Colab `userdata`, or env vars.
+  Add `GH_PAT` (repo clone), and `KAGGLE_USERNAME`/`KAGGLE_KEY` (Colab FI-2010 download) or
+  `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (NSE S3) as secrets in either host.
+- **FI-2010 data** — `nbenv.find_fi2010()` finds it under `/kaggle/input` (Kaggle: *Add Data → FI-2010*)
+  or downloads via the Kaggle CLI (Colab). On Kaggle, no download needed.
+- **GPU** — Kaggle's free GPU quota is separate from Colab's; switch hosts when one is throttled.
 
 ## Data
 
-- **FI-2010** (public benchmark) — Kaggle `lobster/fi-2010`, loaded by `modeling/fi2010_dataset.py`.
+- **FI-2010** (public benchmark) — Kaggle `ulfricirons/fi-2010`, loaded by `modeling/fi2010_dataset.py`.
 - **NSE Dhan 20-level** on S3 `s3://lob-capstone-data/lob-data/dhan/` (region **ap-south-2**).
   20 valid trading days across the May→June expiry roll; `nse_dataset.py` stitches a
   continuous front-month series. See `docs/data_quality_report.md`.
