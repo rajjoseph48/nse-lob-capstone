@@ -181,10 +181,18 @@ class WindowedLOBDataset(Dataset):
     numpy->torch copy → several GB per split).
 
     Keeps only window end-positions with a valid label (>= 0), matching the eager
-    _make_windows behaviour.
+    _make_windows behaviour. If `seg` is given (a per-row segment id, e.g. trading
+    day / contract), windows that straddle a segment boundary are dropped — same
+    contract as the NSE front-month stitching.
     """
 
-    def __init__(self, features: np.ndarray, labels: np.ndarray, seq_len: int):
+    def __init__(
+        self,
+        features: np.ndarray,
+        labels: np.ndarray,
+        seq_len: int,
+        seg: np.ndarray | None = None,
+    ):
         self.features = torch.as_tensor(
             np.ascontiguousarray(features), dtype=torch.float32
         )  # (T, F)
@@ -194,7 +202,11 @@ class WindowedLOBDataset(Dataset):
         if T < seq_len:
             raise ValueError(f"Only {T} rows but seq_len={seq_len}.")
         ends = np.arange(seq_len - 1, T)
-        ends = ends[labels[ends] >= 0]  # last-step label must be valid
+        valid = labels[ends] >= 0  # last-step label must be valid
+        if seg is not None:
+            seg = np.asarray(seg)
+            valid = valid & (seg[ends - seq_len + 1] == seg[ends])  # intra-segment only
+        ends = ends[valid]
         self.ends = ends
         self.y = torch.as_tensor(labels[ends], dtype=torch.long)  # per-window labels
 

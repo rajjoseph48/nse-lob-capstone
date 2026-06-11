@@ -57,7 +57,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fi2010_dataset import LOBDataset
+from fi2010_dataset import LOBDataset, WindowedLOBDataset
 
 # Portable: <repo>/data_acquisition/data/dhan  (this file lives in <repo>/modeling/).
 # Local convenience only — on Colab, data is pulled from S3 instead.
@@ -338,24 +338,21 @@ def load_nse(
         train_seg[:val_start],
     )
 
-    # ----- Sliding windows: drop invalid-label windows and any spanning a
-    # day / contract boundary (seg change) -----
-    train_X, train_y = _make_windows(train_feat, train_labels, seq_len, seg=train_seg)
-    val_X, val_y = _make_windows(val_feat, val_labels, seq_len, seg=val_seg)
-    test_X, test_y = _make_windows(test_feat, test_labels, seq_len, seg=test_seg)
+    # ----- Lazy sliding windows: drop invalid-label windows and any spanning a
+    # day / contract boundary (seg change). Lazy windowing keeps memory O(T*F) —
+    # the eager (N, seq_len, F) expansion OOMs on Colab for the stitched series. -----
+    train_ds = WindowedLOBDataset(train_feat, train_labels, seq_len, seg=train_seg)
+    val_ds = WindowedLOBDataset(val_feat, val_labels, seq_len, seg=val_seg)
+    test_ds = WindowedLOBDataset(test_feat, test_labels, seq_len, seg=test_seg)
 
     print(
-        f"  Splits   train: {len(train_X):,}  val: {len(val_X):,}  test: {len(test_X):,}"
+        f"  Splits   train: {len(train_ds):,}  val: {len(val_ds):,}  test: {len(test_ds):,}"
     )
-    _print_dist("  train labels", train_y)
-    _print_dist("  val   labels", val_y)
-    _print_dist("  test  labels", test_y)
+    _print_dist("  train labels", train_ds.y.numpy())
+    _print_dist("  val   labels", val_ds.y.numpy())
+    _print_dist("  test  labels", test_ds.y.numpy())
 
-    return (
-        LOBDataset(train_X, train_y),
-        LOBDataset(val_X, val_y),
-        LOBDataset(test_X, test_y),
-    )
+    return train_ds, val_ds, test_ds
 
 
 def _print_dist(label: str, y: np.ndarray):

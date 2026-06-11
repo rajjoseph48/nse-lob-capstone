@@ -84,7 +84,14 @@ this file is what actually gets done.
       O(L) vs O(L²) headline: TLOB vs MambaLOB).
 
 ### Day 4 (Fri Jun 13) — NSE matrix on GPU
-- [ ] Rerun **full** NSE matrix on Colab GPU: 4 models × {NIFTY, BANKNIFTY} × horizons, Scheme A (alpha=1e-5), seq_len=100, OOS test days. Includes the missing TLOB + Mamba-BANKNIFTY runs. Save to fresh `results/nse_results.csv`.
+- [x] Made the NSE loader Colab-safe: extended `WindowedLOBDataset` with per-day segment support and
+      switched `nse_dataset.load_nse` to lazy windowing (eager would OOM like FI-2010 did). Validated:
+      identical window counts (203,729/22,575/116,345) at ~1.2 GB vs ~6.5 GB.
+- [x] Built `notebooks/nse_matrix.ipynb`: clone → mamba-ssm → **pull Dhan parquet from S3** (AWS secrets) →
+      runner with naive baselines (majority/stationary/random) → 4 models × {NIFTY, BANKNIFTY} ×
+      {10,20,50,100}, Scheme A (alpha=1e-5), stitched front-month, OOS June test → lift-vs-baseline table →
+      persist. `run_nse_matrix.py` synced (adds tlob, root symbols). Cells validated.
+- [ ] **Run it on Colab GPU** (needs AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY Colab secrets). 32 runs, resumable.
 
 ### Day 5 (Sat Jun 14) — Scheme B + seeds/CIs
 - [ ] Add Scheme B (spread-relative threshold) labeling fn to `nse_dataset.py`; rerun headline NSE models (E4).

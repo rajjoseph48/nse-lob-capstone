@@ -31,9 +31,11 @@ from models import build_model
 from nse_dataset import load_nse
 from train import DEVICE, make_loader, save_checkpoint, train
 
-MODELS = ["deeplob", "mlplob", "mambalob"]
-SYMBOLS = ["NIFTY-MAY-FUT", "BANKNIFTY-MAY-FUT"]
-HORIZONS = [10, 20]
+# Root symbols → stitched front-month series (May-FUT + Jun-FUT). The Colab
+# notebook notebooks/nse_matrix.ipynb is the primary runner; this script mirrors it.
+MODELS = ["deeplob", "mlplob", "tlob", "mambalob"]
+SYMBOLS = ["NIFTY", "BANKNIFTY"]
+HORIZONS = [10, 20, 50, 100]
 
 EPOCHS = 20
 PATIENCE = 3
