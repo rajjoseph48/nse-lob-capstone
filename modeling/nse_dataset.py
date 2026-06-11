@@ -253,6 +253,7 @@ def load_nse(
     horizon: int = 10,
     seq_len: int = SEQ_LEN_DEFAULT,
     alpha: float = ALPHA_DEFAULT,
+    label_scheme: str = "A",
     val_fraction: float = 0.1,
     data_dir: str | Path = DEFAULT_DATA_DIR,
     train_dates: list[str] | None = None,
@@ -267,7 +268,11 @@ def load_nse(
                        into one continuous front-month series)
         horizon:       k = number of LOB events forward used for label computation
         seq_len:       sliding window length (100 = DeepLOB convention)
-        alpha:         label threshold on smoothed-mid return (1e-5 calibrated for index futures)
+        alpha:         Scheme A threshold on smoothed-mid return (1e-5 calibrated for index futures)
+        label_scheme:  "A" = fixed `alpha` (FI-2010-style, comparability);
+                       "B" = spread-relative threshold θ = mean(spread/mid) over the train set
+                       (TLOB-style, ties the threshold to transaction cost; expect a dominant
+                       Stationary class at short horizons)
         val_fraction:  last fraction of training timesteps held out for validation
         data_dir:      directory containing lob_dhan_YYYYMMDD.parquet files
         train_dates:   override default training dates (list of YYYYMMDD strings)
@@ -315,8 +320,21 @@ def load_nse(
     test_mid = ((test_df["bid_price_1"] + test_df["ask_price_1"]) / 2).to_numpy(
         dtype=np.float64
     )
-    train_labels = _make_labels(train_mid, k=horizon, alpha=alpha, seg=train_seg)
-    test_labels = _make_labels(test_mid, k=horizon, alpha=alpha, seg=test_seg)
+    # ----- Threshold: Scheme A (fixed alpha) or Scheme B (spread-relative) -----
+    if label_scheme.upper() == "B":
+        # θ = mean relative spread over the train set (ties threshold to transaction cost)
+        tr_spread = (train_df["ask_price_1"] - train_df["bid_price_1"]).to_numpy(
+            dtype=np.float64
+        )
+        thr = float(np.mean(tr_spread / train_mid))
+        print(
+            f"  Scheme B (spread-relative): theta={thr:.2e}  (mean rel. spread, train)"
+        )
+    else:
+        thr = alpha
+        print(f"  Scheme A (fixed alpha): threshold={thr:.2e}")
+    train_labels = _make_labels(train_mid, k=horizon, alpha=thr, seg=train_seg)
+    test_labels = _make_labels(test_mid, k=horizon, alpha=thr, seg=test_seg)
 
     # ----- Z-score: stats from train ONLY -----
     mu = train_feat_raw.mean(axis=0)

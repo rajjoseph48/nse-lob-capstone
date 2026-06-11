@@ -94,8 +94,14 @@ this file is what actually gets done.
 - [ ] **Run it on Colab GPU** (needs AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY Colab secrets). 32 runs, resumable.
 
 ### Day 5 (Sat Jun 14) — Scheme B + seeds/CIs
-- [ ] Add Scheme B (spread-relative threshold) labeling fn to `nse_dataset.py`; rerun headline NSE models (E4).
-- [ ] 3-seed runs on headline results (FI-2010 4-model + NSE NIFTY) → report mean ± std; bootstrap 95% CIs on test F1.
+- [x] Scheme B (spread-relative θ = mean(spread/mid) over train) added to `nse_dataset.load_nse(label_scheme=)`.
+      Validated: θ≈2.47e-4 (matches measured NIFTY spread). **Finding:** at k=10 Scheme B is ~99% Stationary
+      (spread ≫ short-horizon return) — degenerate by design; NSE notebook runs Scheme B at longer horizons
+      {50,100,200} (cell 7b) and flags >95% Stationary.
+- [x] `modeling/stats.py`: `set_seed`, `bootstrap_ci` (percentile bootstrap on test F1), `seed_summary` (mean±std).
+- [x] Seeds + CIs wired in: FI-2010 reproduction notebook cell 9b (4 models × k=10 × 3 seeds) and NSE notebook
+      cell 7c (4 models × NIFTY × k=10 × 3 seeds, Scheme A) → macro-F1 mean±std + bootstrap 95% CI; separate CSVs.
+- [ ] **Run on Colab** (these retrain ×3 seeds — the slow rigor step; trim SEEDS if time-tight).
 
 ### Day 6 (Sun Jun 15) — Headline novelty + (stretch) backtest
 - [ ] **E6 long-context:** MambaLOB T=400 vs TLOB at matched FLOPs — memory & latency vs sequence-length curve. This is the strongest single novelty figure; prioritize it.
