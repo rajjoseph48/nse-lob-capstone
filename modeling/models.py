@@ -3,10 +3,11 @@ Model architectures for LOB mid-price direction prediction.
 
     DeepLOB  — Zhang 2019 (universal baseline)
     MLPLOB   — Berti & Kasneci 2025 (simple MLP + BiN, ablation floor)
+    TLOB     — Berti & Kasneci 2025 (dual-attention transformer; vendored in tlob.py)
     MambaLOB — This work (Selective SSM for LOB)
 
 All models share the same interface:
-    model = DeepLOB()            # or MLPLOB(), MambaLOB()
+    model = DeepLOB()            # or MLPLOB(), TLOBModel(), MambaLOB()
     logits = model(x)            # x: (B, seq_len, 40)  →  logits: (B, 3)
 
 Input convention (DeepLOB standard):
@@ -336,12 +337,46 @@ class MambaLOB(nn.Module):
 
 
 # ---------------------------------------------------------------------------
+# TLOB — Berti & Kasneci 2025 (dual-attention transformer; vendored in tlob.py)
+# ---------------------------------------------------------------------------
+class TLOBModel(nn.Module):
+    """Thin wrapper over the vendored official TLOB so it fits our contract
+    (B, seq_len, n_features) -> (B, 3). FI-2010 paper settings: num_layers=4,
+    num_heads=1, sinusoidal positional embedding. hidden_dim=128 (sweep range)."""
+
+    def __init__(
+        self,
+        seq_len: int = 100,
+        n_features: int = 40,
+        hidden_dim: int = 128,
+        num_layers: int = 4,
+        num_heads: int = 1,
+        is_sin_emb: bool = True,
+    ):
+        super().__init__()
+        from tlob import TLOB
+
+        self.net = TLOB(
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            seq_size=seq_len,
+            num_features=n_features,
+            num_heads=num_heads,
+            is_sin_emb=is_sin_emb,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)  # (B, 3)
+
+
+# ---------------------------------------------------------------------------
 # Registry — easy lookup by name string
 # ---------------------------------------------------------------------------
 MODEL_REGISTRY = {
     "deeplob": DeepLOB,
     "mlplob": MLPLOB,
     "mambalob": MambaLOB,
+    "tlob": TLOBModel,
 }
 
 

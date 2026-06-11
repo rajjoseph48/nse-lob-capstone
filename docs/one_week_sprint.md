@@ -61,10 +61,14 @@ this file is what actually gets done.
 - **Acceptance gate:** DeepLOB FI-2010 H=10 macro-F1 in the literature band (~78–86%, paper 83.4%). If miss → debug labels/normalization before proceeding.
 
 ### Day 2 (Wed Jun 11) — TLOB
-- [ ] Clone `LeonardoBerti00/TLOB`; run their FI-2010 pipeline to confirm ≈92.8% F1 (sanity that the repo + data line up).
-- [ ] Build `build_model("tlob")` thin wrapper conforming to our data contract: input `(B,100,40)` → logits `[B,3]`.
-- [ ] Validate TLOB acceptance (±2 pts of reported). Complete the E1 FI-2010 table (4 models).
-- **Fallback if TLOB integration stalls >0.5 day:** keep MLPLOB as the transformer-adjacent baseline, cite TLOB published numbers, mark TLOB-reproduction as deferred. Don't let it sink the week.
+- [x] Vendored official `LeonardoBerti00/TLOB` (tlob.py + bin + mlp) into `modeling/tlob.py`, stripped of
+      `constants`/`einops`/LOBSTER coupling, device-agnostic. Faithful architecture: BiN → embed+pos-enc →
+      4 layers of alternating temporal/feature self-attention → progressive MLP head → 3 logits.
+- [x] `build_model("tlob")` wrapper conforms to the contract `(B,100,40)` → `[B,3]`; 1.8M params (hidden=128,
+      heads=1, sin-emb). Forward/backward + MPS verified locally.
+- [x] Wired into the notebook full run (MODELS += "tlob") with the paper's lr=1e-4; PUBLISHED anchor 92.8.
+- [ ] **Run on Colab GPU** and validate TLOB acceptance (note deviation: our seq_len=100 vs paper's 128). Complete the E1 4-model table.
+- **Fallback if TLOB reproduction is far off:** keep MLPLOB as the transformer-adjacent baseline, cite TLOB published numbers, mark TLOB-reproduction as caveated. Don't let it sink the week.
 
 ### Day 3 (Thu Jun 12) — Mamba on FI-2010 + efficiency
 - [ ] MambaLOB on FI-2010 (E2) on GPU (now minutes, not hours). Variants M1 (pure Mamba) + M2 (Mamba temporal + feature attention).
