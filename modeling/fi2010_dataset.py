@@ -160,6 +160,9 @@ def _make_windows(
 
 
 class LOBDataset(Dataset):
+    """Holds pre-windowed (N, seq_len, F) tensors. Fine for small splits, but
+    materializing all windows OOMs on FI-2010 — prefer WindowedLOBDataset there."""
+
     def __init__(self, X: np.ndarray, y: np.ndarray):
         self.X = torch.tensor(X, dtype=torch.float32)
         self.y = torch.tensor(y, dtype=torch.long)
@@ -169,6 +172,38 @@ class LOBDataset(Dataset):
 
     def __getitem__(self, i):
         return self.X[i], self.y[i]
+
+
+class WindowedLOBDataset(Dataset):
+    """Memory-efficient sliding windows: stores the (T, F) matrix once and slices
+    each window on the fly in __getitem__. Avoids the dense (N, seq_len, F)
+    expansion that OOMs on FI-2010 (~230k windows × 100 × 40, doubled by the
+    numpy->torch copy → several GB per split).
+
+    Keeps only window end-positions with a valid label (>= 0), matching the eager
+    _make_windows behaviour.
+    """
+
+    def __init__(self, features: np.ndarray, labels: np.ndarray, seq_len: int):
+        self.features = torch.as_tensor(
+            np.ascontiguousarray(features), dtype=torch.float32
+        )  # (T, F)
+        self.seq_len = seq_len
+        labels = np.asarray(labels)
+        T = len(self.features)
+        if T < seq_len:
+            raise ValueError(f"Only {T} rows but seq_len={seq_len}.")
+        ends = np.arange(seq_len - 1, T)
+        ends = ends[labels[ends] >= 0]  # last-step label must be valid
+        self.ends = ends
+        self.y = torch.as_tensor(labels[ends], dtype=torch.long)  # per-window labels
+
+    def __len__(self) -> int:
+        return len(self.ends)
+
+    def __getitem__(self, i):
+        e = int(self.ends[i])
+        return self.features[e - self.seq_len + 1 : e + 1], self.y[i]
 
 
 def load_fi2010(
@@ -217,22 +252,18 @@ def load_fi2010(
     val_feat, val_labels = train_feat[val_start:], train_labels[val_start:]
     train_feat, train_labels = train_feat[:val_start], train_labels[:val_start]
 
-    # Build sliding windows
-    train_X, train_y = _make_windows(train_feat, train_labels, seq_len)
-    val_X, val_y = _make_windows(val_feat, val_labels, seq_len)
-    test_X, test_y = _make_windows(test_feat, test_labels, seq_len)
+    # Lazy sliding windows (dense materialization OOMs on Colab for FI-2010)
+    train_ds = WindowedLOBDataset(train_feat, train_labels, seq_len)
+    val_ds = WindowedLOBDataset(val_feat, val_labels, seq_len)
+    test_ds = WindowedLOBDataset(test_feat, test_labels, seq_len)
 
     print(
-        f"  Splits → train: {len(train_X):,}  val: {len(val_X):,}  test: {len(test_X):,}"
+        f"  Splits → train: {len(train_ds):,}  val: {len(val_ds):,}  test: {len(test_ds):,}"
     )
-    _print_dist("  train labels", train_y)
-    _print_dist("  test  labels", test_y)
+    _print_dist("  train labels", train_ds.y.numpy())
+    _print_dist("  test  labels", test_ds.y.numpy())
 
-    return (
-        LOBDataset(train_X, train_y),
-        LOBDataset(val_X, val_y),
-        LOBDataset(test_X, test_y),
-    )
+    return train_ds, val_ds, test_ds
 
 
 def make_loader(
