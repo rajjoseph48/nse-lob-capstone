@@ -363,6 +363,11 @@ def load_nse(
     val_ds = WindowedLOBDataset(val_feat, val_labels, seq_len, seg=val_seg)
     test_ds = WindowedLOBDataset(test_feat, test_labels, seq_len, seg=test_seg)
 
+    # Attach raw mid-price + segment ids to the test set for the cost-aware
+    # backtest (entry/exit prices and segment-aware holding). Harmless extras.
+    test_ds.mid = test_mid
+    test_ds.seg = test_seg
+
     print(
         f"  Splits   train: {len(train_ds):,}  val: {len(val_ds):,}  test: {len(test_ds):,}"
     )

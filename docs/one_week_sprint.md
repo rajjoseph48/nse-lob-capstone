@@ -104,8 +104,13 @@ this file is what actually gets done.
 - [ ] **Run on Colab** (these retrain ×3 seeds — the slow rigor step; trim SEEDS if time-tight).
 
 ### Day 6 (Sun Jun 15) — Headline novelty + (stretch) backtest
-- [ ] **E6 long-context:** MambaLOB T=400 vs TLOB at matched FLOPs — memory & latency vs sequence-length curve. This is the strongest single novelty figure; prioritize it.
-- [ ] *Stretch:* minimal cost-aware backtest (E8) on best NSE model — 1-tick slippage + charges, net hit-rate/Sharpe vs confidence τ. Frame as signal-quality, not a strategy.
+- [x] **E6 long-context: covered** by `mamba_and_efficiency.ipynb` — the memory/latency-vs-seq-length curve
+      (TLOB O(L²) vs MambaLOB O(L), cell 11) + M3 (MambaLOB accuracy at T=400, cell 8). Optional future
+      add: a TLOB-at-T=400 *accuracy* point for a direct head-to-head (the curve already shows its cost).
+- [x] **Cost-aware backtest (E8):** `modeling/backtest.py` + NSE notebook cell 8b. Signal-quality framing:
+      P(up)/P(down) > τ → long/short, hold for the horizon, ~5 bps round-trip cost; reports hit-rate,
+      net bps/trade, per-trade IR (mean/std, not √n) vs τ, with figures. Validated locally; honest finding
+      that at short event-horizons net ≈ −cost (F1 ≠ profit). Picks the highest-lift config + reloads its checkpoint.
 
 ### Day 7 (Mon Jun 16) — Tables, figures, handoff
 - [ ] Reproduction comparison table (ours vs published, deltas, seed variance).
