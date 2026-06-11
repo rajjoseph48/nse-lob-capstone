@@ -71,9 +71,17 @@ this file is what actually gets done.
 - **Fallback if TLOB reproduction is far off:** keep MLPLOB as the transformer-adjacent baseline, cite TLOB published numbers, mark TLOB-reproduction as caveated. Don't let it sink the week.
 
 ### Day 3 (Thu Jun 12) — Mamba on FI-2010 + efficiency
-- [ ] MambaLOB on FI-2010 (E2) on GPU (now minutes, not hours). Variants M1 (pure Mamba) + M2 (Mamba temporal + feature attention).
-- [ ] mamba-ssm vs `mambapy` parity test (fixed input, assert outputs match within tol) — required before trusting Mac smoke runs.
-- [ ] Efficiency profiling for all 4 models: params (torchinfo), FLOPs (fvcore), inference latency (batch=1), peak memory.
+- [x] Built `notebooks/mamba_and_efficiency.ipynb`: mamba-ssm CUDA build + backend check → E2 variants
+      **M1** (pure Mamba), **M2** (Mamba temporal + feature attention), **M3** (long-context T=400) on FI-2010
+      → vs-baselines table → efficiency profiling → scaling-curve figure → persist. Cells validated; profiling
+      helper sanity-checked locally for all 4 models.
+- [ ] **Run it on Colab GPU** (mamba-ssm builds on Colab Linux/CUDA).
+- [~] Parity test: deferred — our Mac fallback (`_MambaBlock`) is an approximation, not `mambapy`; since all
+      training is Colab-only (mamba-ssm kernel), strict parity is moot. Notebook instead asserts the CUDA
+      kernel is active and reports backend.
+- [x] Efficiency profiling for all 4 models: params, FLOPs (fvcore, best-effort — Mamba scan uncounted),
+      inference latency (batch=1, HFT framing), peak GPU memory, + memory/latency-vs-seq-length curve (the
+      O(L) vs O(L²) headline: TLOB vs MambaLOB).
 
 ### Day 4 (Fri Jun 13) — NSE matrix on GPU
 - [ ] Rerun **full** NSE matrix on Colab GPU: 4 models × {NIFTY, BANKNIFTY} × horizons, Scheme A (alpha=1e-5), seq_len=100, OOS test days. Includes the missing TLOB + Mamba-BANKNIFTY runs. Save to fresh `results/nse_results.csv`.
