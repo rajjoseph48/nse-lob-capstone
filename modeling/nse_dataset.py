@@ -6,7 +6,7 @@ BANKNIFTY index futures, applies outlier filtering, reorders features to
 FI-2010 layout, computes alpha=1e-5 labels at a chosen horizon, and returns
 PyTorch Dataset objects compatible with `models.py` and `train.py`.
 
-Continuous front-month series (May + June 2026, 19 trading days):
+Continuous front-month series (May + June 2026, 21 trading days):
     The May-FUT contract expired 2026-05-26 and collection rolled to Jun-FUT
     on 2026-06-01. Each daily Parquet holds exactly one contract for a given
     root (NIFTY / BANKNIFTY), so we match days by *root* and stitch the May and
@@ -18,7 +18,8 @@ Continuous front-month series (May + June 2026, 19 trading days):
 Train/Val/Test split (default):
     Train: 2026-05-12 .. 2026-06-04   (15 trading days, May-FUT + early Jun-FUT)
     Val:   last 10% of train windows  (temporal, consistent with FI-2010 loader)
-    Test:  2026-06-05, 06-08, 06-09, 06-10  (4 days, most recent — true OOS)
+    Test:  2026-06-05, 08, 09, 10, 11, 12  (6 days, most recent — true OOS)
+    (Jun-FUT expiry is ~2026-06-26, so all June days are still front-month — no second roll.)
 
 May 11 dropped (partial session; collector started 10:02 IST). May 27-29
 dropped (broken collection / 0-byte files during the May-FUT expiry roll —
@@ -86,7 +87,14 @@ TRAIN_DATES = [
     "20260603",
     "20260604",
 ]
-TEST_DATES = ["20260605", "20260608", "20260609", "20260610"]
+TEST_DATES = [
+    "20260605",
+    "20260608",
+    "20260609",
+    "20260610",
+    "20260611",
+    "20260612",
+]
 
 N_LEVELS = 10
 N_FEATURES = 4 * N_LEVELS  # 40 (matches FI-2010)
