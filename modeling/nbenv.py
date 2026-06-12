@@ -86,3 +86,51 @@ def find_fi2010(roots=None) -> str:
         if found:
             return str(found)
     return ""
+
+
+# --- S3 sync helpers (cross-timeout resumability for the experiment notebooks) -------------
+def s3_client(region: str = "ap-south-2"):
+    """boto3 S3 client using AWS_* from secrets/env, or None if creds/boto3 absent
+    (notebooks then keep results locally only)."""
+    for k in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+        os.environ.setdefault(k, get_secret(k))
+    if not os.environ.get("AWS_SECRET_ACCESS_KEY"):
+        print(
+            "No AWS creds -> S3 sync OFF (results kept locally only). Add AWS_* secrets."
+        )
+        return None
+    try:
+        import boto3
+
+        return boto3.client("s3", region_name=region)
+    except Exception as e:
+        print("boto3 unavailable -> S3 sync OFF:", repr(e))
+        return None
+
+
+def s3_put(
+    client, localpath, bucket: str = "lob-capstone-data", prefix: str = ""
+) -> None:
+    """Upload one file; key = '<prefix>/<localpath>'. No-op if client is None."""
+    if client is None:
+        return
+    try:
+        client.upload_file(str(localpath), bucket, f"{prefix}/{localpath}")
+        print(f"   ^ s3://{bucket}/{prefix}/{localpath}")
+    except Exception as e:
+        print("   (s3 put skipped)", repr(e))
+
+
+def s3_pull(
+    client, localpath, bucket: str = "lob-capstone-data", prefix: str = ""
+) -> bool:
+    """Download '<prefix>/<localpath>' to localpath (to resume). False if absent/None."""
+    if client is None:
+        return False
+    try:
+        pathlib.Path(localpath).parent.mkdir(parents=True, exist_ok=True)
+        client.download_file(bucket, f"{prefix}/{localpath}", str(localpath))
+        print(f"   pulled s3://{bucket}/{prefix}/{localpath} (resuming)")
+        return True
+    except Exception:
+        return False
