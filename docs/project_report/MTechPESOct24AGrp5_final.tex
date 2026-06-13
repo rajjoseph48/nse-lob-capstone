@@ -510,11 +510,35 @@ shrinks.
 
 \subsection{Preliminary Analysis and Observations}
 \subsubsection{Result Analysis and Discussion}
-\textbf{FI-2010.} TLOB $>$ DeepLOB $>$ MambaLOB on accuracy. \textbf{NSE transfer (Scheme A, partial).}
-On NIFTY, weighted $F_1$ is $\approx$0.44--0.52 (DeepLOB), 0.46--0.64 (MLPLOB) and 0.60--0.69 (TLOB); all
-models beat the naive baselines (random $\approx$0.33), so there \emph{is} learnable signal --- but the
-absolute numbers are well below FI-2010, the expected degradation on new data (consistent with the LOBCAST
-benchmark study). MambaLOB's NSE rows are still training at the time of writing.
+\textbf{FI-2010.} On accuracy, TLOB $>$ DeepLOB $>$ MambaLOB. \textbf{NSE transfer (Scheme A, complete ---
+32 runs over 4 models $\times$ 2 symbols $\times$ 4 horizons).} Table~\ref{tab:nse} summarises weighted
+$F_1$. All models beat the naive baselines (random $\approx$0.33; lift over the best baseline is positive
+everywhere), so there \emph{is} learnable signal on NSE --- but the absolute numbers are well below FI-2010,
+the expected degradation on new data (consistent with the LOBCAST benchmark study).
+\begin{table}[h]
+\centering
+\caption{NSE Scheme A --- test weighted $F_1$ (range over $k\in\{10,20,50,100\}$). Lift = weighted $F_1$
+minus the best naive baseline.}
+\label{tab:nse}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Model & NIFTY (wF1) & BANKNIFTY (wF1) & Lift over baseline \\
+\midrule
+DeepLOB  & 0.44--0.52 & 0.46--0.50 & 0.03--0.12 \\
+MLPLOB   & 0.46--0.64 & 0.35--0.47 & 0.01--0.19 \\
+MambaLOB & 0.52--0.59 & 0.45--0.48 & 0.02--0.17 \\
+\textbf{TLOB} & \textbf{0.60--0.71} & \textbf{0.64--0.72} & \textbf{0.25--0.30} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{TLOB leads across both instruments and all horizons} (lift $\approx$0.25--0.30), mirroring its
+FI-2010 ranking. \textbf{Key transfer finding for the proposed model:} on NIFTY, \emph{MambaLOB (68k
+parameters) outperforms DeepLOB (191k) and matches MLPLOB, second only to TLOB} --- whereas on FI-2010
+MambaLOB trailed DeepLOB. In other words, on the target Indian market the selective-SSM transfers
+\emph{better} than on the benchmark, delivering competitive accuracy at roughly $1/27$ of TLOB's
+parameters. On BANKNIFTY MambaLOB is on par with DeepLOB (both $\approx$0.46--0.48), below TLOB. Macro $F_1$
+(NIFTY) follows the same order: DeepLOB 0.39--0.42, MLPLOB 0.44--0.47, MambaLOB 0.44--0.50, TLOB 0.53--0.58.
 
 \subsubsection{Error Profiling and Bias Detection}
 The dominant effect is class balance. Under the fixed threshold the Stationary class is small at long
@@ -525,7 +549,8 @@ errors concentrated on the minority directional classes, which is why macro $F_1
 (1) \textbf{Metric convention matters}: the FI-2010 headline ($\sim$83.4) is a \emph{weighted} $F_1$; our
 weighted $F_1$ matches it, while our macro $F_1$ ($\approx$72) matches \emph{independent} reproductions
 (LOBCAST). We therefore report both. (2) \textbf{F1 $\ne$ profit}: see Section~3.6 / 3.10. (3)
-\textbf{Mamba is an efficiency win, not an accuracy win} on FI-2010.
+\textbf{Mamba is primarily an efficiency win}: it trails on FI-2010 accuracy, yet on the NSE transfer it is
+competitive --- beating the CNN baseline (DeepLOB) on NIFTY --- at a fraction of the parameters and compute.
 
 \subsection{Originality and Innovation in Approach}
 \subsubsection{Creative Framing of the Problem}
@@ -539,9 +564,9 @@ linear scaling; and two labelling schemes (fixed vs spread-relative) reported si
 \subsection{Risk Assessment and Project Management}
 \subsubsection{Progress Tracker vs.\ Original Timeline}
 Completed: literature survey; the engineered NSE dataset + pipeline; FI-2010 reproduction (DeepLOB, MLPLOB,
-TLOB); MambaLOB on FI-2010 + efficiency analysis; NSE Scheme-A matrix (DeepLOB/MLPLOB/TLOB done, Mamba in
-progress). Deferred (next phase): Scheme-B confirmatory training, multi-seed confidence intervals, and the
-cost-aware backtest.
+TLOB); MambaLOB on FI-2010 + efficiency analysis; the \emph{complete} NSE Scheme-A matrix (all four models,
+both instruments, four horizons). Deferred (next phase): Scheme-B confirmatory training, multi-seed
+confidence intervals, and the cost-aware backtest.
 \subsubsection{Bottlenecks and Delays}
 Free-tier GPU throttling (mitigated by moving from Colab to Kaggle, which has a separate quota); a Kaggle
 P100 incompatible with the latest PyTorch CUDA build (use T4); \texttt{mamba-ssm} failing to build under
@@ -622,10 +647,10 @@ compute constraints.
 
 \subsection{Chapter Summary and Next Steps}
 We engineered an NSE index-futures LOB dataset, reproduced three baselines on FI-2010, introduced MambaLOB
-with a strong efficiency result, and began the NSE transfer study. \textbf{Next steps}: finish the
-MambaLOB NSE runs; the Scheme-B confirmatory training; multi-seed bootstrap confidence intervals; the
-cost-aware backtest; a walk-forward robustness check; and consolidation of all results into the final
-report.
+with a strong efficiency result, and completed the NSE Scheme-A transfer study (where MambaLOB transfers
+competitively, beating the CNN baseline on NIFTY). \textbf{Next steps}: the Scheme-B confirmatory training;
+multi-seed bootstrap confidence intervals; the cost-aware backtest; a walk-forward robustness check; and
+consolidation of all results into the final report.
 
 \paragraph{Appendices (planned).} Detailed per-(model, symbol, horizon) result tables; confusion-matrix and
 scaling figures; the notebook$\rightarrow$result map; and reproducibility artefacts (\texttt{requirements},
