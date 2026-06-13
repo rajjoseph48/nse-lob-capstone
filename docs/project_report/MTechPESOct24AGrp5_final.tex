@@ -648,9 +648,34 @@ compute constraints.
 \subsection{Chapter Summary and Next Steps}
 We engineered an NSE index-futures LOB dataset, reproduced three baselines on FI-2010, introduced MambaLOB
 with a strong efficiency result, and completed the NSE Scheme-A transfer study (where MambaLOB transfers
-competitively, beating the CNN baseline on NIFTY). \textbf{Next steps}: the Scheme-B confirmatory training;
-multi-seed bootstrap confidence intervals; the cost-aware backtest; a walk-forward robustness check; and
-consolidation of all results into the final report.
+competitively, beating the CNN baseline on NIFTY).
+
+\medskip\noindent\textbf{Next steps --- Phase 2 (planned, pending mentor discussion).} The work so far is
+strong on data engineering, reproduction, and transfer; Phase~2 deepens the \emph{Data-Science} contribution
+so the novelty is unambiguous. It has three tiers:
+
+\noindent\emph{(A) Microstructure feature engineering (DE\,$\rightarrow$\,DS bridge; novel).} Construct and
+ablate engineered channels on top of the raw 40-feature LOB window: Order-Flow Imbalance (OFI) and depth
+imbalance; micro-price (volume-weighted mid) and relative spread; and --- uniquely available in our Dhan
+data --- the per-level \emph{order-count} field (a 60-feature variant) and the full 20-level depth (80
+features). Research question: \emph{how much, and which, microstructure information does the Indian
+index-futures signal need?}
+
+\noindent\emph{(B) Improved MambaLOB architecture (the headline novelty).} Move beyond the vanilla SSM stack
+to (i) \textbf{bidirectional Mamba} (forward + time-reversed scans concatenated --- valid for
+classification, the BiLSTM analog) and (ii) \textbf{ConvMambaLOB}, a hybrid that prepends DeepLOB-style
+convolutions (spatial LOB structure) to the linear-time Mamba temporal core. Goal: match or beat TLOB at a
+fraction of its compute.
+
+\noindent\emph{(C) Rigour layer (expected practice).} Hyperparameter optimization (Optuna) on the best
+variant with an equal budget for baselines; a class-imbalance study (focal loss vs class-weighted CE vs
+class-balanced sampling vs label smoothing); statistical significance (multi-seed bootstrap CIs +
+Diebold--Mariano / permutation tests for pairwise comparison); and probability calibration (temperature
+scaling) feeding the cost-aware backtest.
+
+\noindent Also carried over from the interim plan: the Scheme-B confirmatory training, the cost-aware
+backtest, a walk-forward robustness check, and consolidation into the final report. A standalone
+\texttt{docs/phase2\_plan.md} tracks this in detail.
 
 \paragraph{Appendices (planned).} Detailed per-(model, symbol, horizon) result tables; confusion-matrix and
 scaling figures; the notebook$\rightarrow$result map; and reproducibility artefacts (\texttt{requirements},
