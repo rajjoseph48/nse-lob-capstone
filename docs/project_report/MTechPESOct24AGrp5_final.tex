@@ -425,19 +425,49 @@ windows, test 5/8/9/10/11/12 June (6 most-recent out-of-sample days).
 
 \subsection{Feature Engineering}
 \subsubsection{Feature Identification Techniques}
-The model input is the raw 40-dimensional LOB vector (10 levels) per event; mid-price and spread are
-derived for labelling and cost accounting. We deliberately avoid hand-crafted trading indicators, letting
-the sequence model learn from the order-book windows directly (consistent with DeepLOB/TLOB).
+The base model input is the raw 40-dimensional LOB vector (10 levels) per event. On top of this we engineer
+\emph{microstructure} channels (\texttt{modeling/features.py}), motivated by the weak raw-LOB signal on NSE:
+\begin{itemize}[nosep]
+  \item \textbf{Order-Flow Imbalance (OFI)} (Cont et al.) at level 1 and summed over levels 1--5, computed
+        per trading day so flow never crosses an overnight/expiry boundary;
+  \item \textbf{depth imbalance} (level 1 and aggregate over 10 levels), \textbf{micro-price}
+        (Stoikov, volume-weighted mid), and \textbf{relative spread};
+  \item \textbf{per-level order counts} --- a channel \emph{unique to the Dhan feed}, absent from FI-2010 and Kite.
+\end{itemize}
+These define named feature sets used for ablation: \texttt{base40} (raw, 40), \texttt{micro} (+6 scalars, 46),
+\texttt{orders60} (+order counts, 60), \texttt{depth80} (20 levels, 80), and \texttt{all} (66).
 
 \subsubsection{Dimensionality Reduction}
-None applied: the input is intentionally the raw LOB tensor. We instead study the \emph{depth} choice
-(first 10 of Dhan's 20 levels, to match FI-2010) and note Dhan's additional order-count field and levels
-11--20 as available future feature channels (an 80-feature or 60-feature variant).
+None applied; the input is intentionally the raw/engineered LOB tensor. We instead study which
+\emph{representation} the signal needs via the depth choice and the feature-set ablation below.
 
 \subsubsection{Feature Impact Observations}
-The most consequential ``feature engineering'' decision is the labelling threshold (Section~3.6): under a
-spread-relative threshold most NSE moves do not clear the spread, which is itself an economic finding about
-signal availability.
+Table~\ref{tab:featabl} shows the ablation for the proposed MambaLOB on NIFTY (improvement in test
+weighted-$F_1$ over \texttt{base40}).
+\begin{table}[h]
+\centering
+\caption{Feature ablation --- MambaLOB (NIFTY), $\Delta$ weighted-$F_1$ vs \texttt{base40}.}
+\label{tab:featabl}
+\begin{tabular}{@{}lccl@{}}
+\toprule
+Feature set & $\Delta$ (k=10) & $\Delta$ (k=100) & Verdict \\
+\midrule
+\texttt{micro}    & $+0.028$ & $+0.040$ & helps \\
+\texttt{orders60} & $-0.069$ & $-0.007$ & hurts alone \\
+\texttt{depth80}  & $-0.003$ & $+0.002$ & $\approx$ neutral \\
+\textbf{\texttt{all}} & $\mathbf{+0.024}$ & $\mathbf{+0.068}$ & \textbf{best} \\
+\bottomrule
+\end{tabular}
+\end{table}
+Findings: (i) \textbf{microstructure features help} --- \texttt{micro} and \texttt{all} beat raw LOB, with the
+gain growing with horizon (at k=100 the \texttt{all} set lifts weighted-$F_1$ from 0.569 to 0.637); the effect
+also holds for TLOB ($+0.007$). (ii) \textbf{Raw order counts help only in combination} with the micro scalars
+(\texttt{orders60} alone hurts, but \texttt{all} is best) --- a feature-interaction result that exploits the
+Dhan-unique channel. (iii) \textbf{Book depth beyond level 10 is uninformative} (\texttt{depth80} neutral) ---
+the NSE index-futures signal lives at the top of book. (iv) The features add negligible parameters
+($68$k\,$\rightarrow$\,$70$k), so MambaLOB stays the efficient model. The separate labelling-threshold study
+(Section~3.6) remains the key \emph{economic} finding. \emph{(Single seed, NIFTY; multi-seed CIs are deferred
+to confirm significance.)}
 
 \subsection{Technical Implementation}
 \subsubsection{Tools and Technology Stack}
@@ -654,12 +684,11 @@ competitively, beating the CNN baseline on NIFTY).
 strong on data engineering, reproduction, and transfer; Phase~2 deepens the \emph{Data-Science} contribution
 so the novelty is unambiguous. It has three tiers:
 
-\noindent\emph{(A) Microstructure feature engineering (DE\,$\rightarrow$\,DS bridge; novel).} Construct and
-ablate engineered channels on top of the raw 40-feature LOB window: Order-Flow Imbalance (OFI) and depth
-imbalance; micro-price (volume-weighted mid) and relative spread; and --- uniquely available in our Dhan
-data --- the per-level \emph{order-count} field (a 60-feature variant) and the full 20-level depth (80
-features). Research question: \emph{how much, and which, microstructure information does the Indian
-index-futures signal need?}
+\noindent\emph{(A) Microstructure feature engineering (DE\,$\rightarrow$\,DS bridge; novel) --- \textbf{done},
+see Section~3.3.} Engineered OFI, depth imbalance, micro-price, relative spread, and the Dhan-unique
+order-count channel, ablated against the raw window. Result: microstructure features help (best set lifts
+MambaLOB weighted-$F_1$ by up to $+0.068$ at k=100), order counts help only in combination, and book depth
+beyond level~10 is uninformative. Multi-seed CIs (Tier~C) remain to confirm significance.
 
 \noindent\emph{(B) Improved MambaLOB architecture (the headline novelty).} Move beyond the vanilla SSM stack
 to (i) \textbf{bidirectional Mamba} (forward + time-reversed scans concatenated --- valid for
