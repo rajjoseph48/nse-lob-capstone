@@ -113,17 +113,23 @@ def _dhan_to_fi2010_order() -> list[str]:
     return cols
 
 
-def _load_day(path: Path, root: str) -> pd.DataFrame:
+def _load_day(
+    path: Path, root: str, feature_cols: list[str] | None = None
+) -> pd.DataFrame:
     """Read one day's Parquet, filter to the front-month contract for `root`.
 
     `root` is "NIFTY" or "BANKNIFTY". Each daily file holds exactly one futures
     contract per root (e.g. NIFTY-MAY-FUT before the roll, NIFTY-JUN-FUT after),
     so we match by prefix and pick up whichever contract is present that day.
-    The resolved contract symbol is kept in a `_contract` column for roll
-    bookkeeping.
+    `feature_cols` are the extra raw columns the chosen feature set needs (order
+    counts, deep levels). Rows are dropped only when an L1-10 price/qty is missing
+    (those are 100% populated); deep levels / order counts are NaN-filled later.
     """
-    fi_cols = _dhan_to_fi2010_order()
-    needed = ["timestamp", "symbol", "bid_price_1", "ask_price_1"] + fi_cols
+    base40 = _dhan_to_fi2010_order()
+    feature_cols = feature_cols or base40
+    needed = (
+        ["timestamp", "symbol", "bid_price_1", "ask_price_1"] + base40 + feature_cols
+    )
     df = pd.read_parquet(path, columns=list(dict.fromkeys(needed)))
     is_front = df["symbol"].str.startswith(f"{root}-") & df["symbol"].str.endswith(
         "-FUT"
@@ -135,8 +141,9 @@ def _load_day(path: Path, root: str) -> pd.DataFrame:
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values("timestamp").reset_index(drop=True)
 
-    # Drop rows missing any of the first 10 levels
-    df = df.dropna(subset=fi_cols)
+    # Drop rows missing any L1-10 price/qty (these are fully populated); deep
+    # levels (11-20) and order counts are NaN-filled in features.build_features.
+    df = df.dropna(subset=base40)
     # Drop crossed quotes
     df = df[df["bid_price_1"] < df["ask_price_1"]]
     return df.reset_index(drop=True)
@@ -164,7 +171,9 @@ def _outlier_mask(
     return keep
 
 
-def _load_and_clean(dates: list[str], root: str, data_dir: Path) -> pd.DataFrame:
+def _load_and_clean(
+    dates: list[str], root: str, data_dir: Path, feature_cols: list[str] | None = None
+) -> pd.DataFrame:
     """Load + clean a list of date strings for one root. Returns a concatenated frame.
 
     Each row carries `_date` (the trading day) used downstream as the per-day
@@ -176,7 +185,7 @@ def _load_and_clean(dates: list[str], root: str, data_dir: Path) -> pd.DataFrame
         if not path.exists():
             print(f"  [warn] missing: {path.name}")
             continue
-        df = _load_day(path, root)
+        df = _load_day(path, root, feature_cols)
         if df.empty:
             print(f"  [warn] empty after filtering: {path.name} {root}")
             continue
@@ -262,6 +271,7 @@ def load_nse(
     seq_len: int = SEQ_LEN_DEFAULT,
     alpha: float = ALPHA_DEFAULT,
     label_scheme: str = "A",
+    feature_set: str = "base40",
     val_fraction: float = 0.1,
     data_dir: str | Path = DEFAULT_DATA_DIR,
     train_dates: list[str] | None = None,
@@ -307,8 +317,11 @@ def load_nse(
     print(f"  Train dates ({len(train_dates)}): {train_dates[0]}..{train_dates[-1]}")
     print(f"  Test  dates ({len(test_dates)}): {test_dates}")
 
-    train_df = _load_and_clean(train_dates, root, data_dir)
-    test_df = _load_and_clean(test_dates, root, data_dir)
+    from features import required_columns
+
+    feat_cols = required_columns(feature_set)
+    train_df = _load_and_clean(train_dates, root, data_dir, feat_cols)
+    test_df = _load_and_clean(test_dates, root, data_dir, feat_cols)
 
     # Per-day segment ids — labels and windows never cross a day or roll boundary.
     train_seg = pd.factorize(train_df["_date"])[0]
@@ -317,9 +330,12 @@ def load_nse(
     print(f"  Contracts stitched: {contracts}")
     print(f"  Train rows: {len(train_df):,}  Test rows: {len(test_df):,}")
 
-    # ----- Features (raw) -----
-    train_feat_raw = train_df[fi_cols].to_numpy(dtype=np.float64)
-    test_feat_raw = test_df[fi_cols].to_numpy(dtype=np.float64)
+    # ----- Features (raw) — base40 or an engineered set (Phase 2, Tier A) -----
+    from features import build_features
+
+    train_feat_raw, feat_names = build_features(train_df, train_seg, feature_set)
+    test_feat_raw, _ = build_features(test_df, test_seg, feature_set)
+    print(f"  Feature set: {feature_set}  (F={train_feat_raw.shape[1]})")
 
     # ----- Labels on raw mid-price (alpha is in return space, scale-invariant) -----
     train_mid = ((train_df["bid_price_1"] + train_df["ask_price_1"]) / 2).to_numpy(
