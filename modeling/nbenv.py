@@ -134,3 +134,46 @@ def s3_pull(
         return True
     except Exception:
         return False
+
+
+# --- Clean area-based layout: experiments/<area>/{results,figures,checkpoints}/<file> ---
+def _exp_key(area: str, localpath) -> str:
+    name = pathlib.Path(str(localpath)).name
+    if name.endswith(".pt"):
+        kind = "checkpoints"
+    elif name.endswith(".png"):
+        kind = "figures"
+    else:
+        kind = "results"
+    return f"experiments/{area}/{kind}/{name}"
+
+
+def s3_put_area(
+    client, localpath, area: str, bucket: str = "lob-capstone-data"
+) -> None:
+    """Upload one file into the clean layout experiments/<area>/<kind>/<basename>,
+    routing by extension (.pt->checkpoints, .png->figures, else results)."""
+    if client is None:
+        return
+    key = _exp_key(area, localpath)
+    try:
+        client.upload_file(str(localpath), bucket, key)
+        print(f"   ^ s3://{bucket}/{key}")
+    except Exception as e:
+        print("   (s3 put skipped)", repr(e))
+
+
+def s3_pull_area(
+    client, localpath, area: str, bucket: str = "lob-capstone-data"
+) -> bool:
+    """Download experiments/<area>/<kind>/<basename> to localpath (to resume)."""
+    if client is None:
+        return False
+    key = _exp_key(area, localpath)
+    try:
+        pathlib.Path(localpath).parent.mkdir(parents=True, exist_ok=True)
+        client.download_file(bucket, key, str(localpath))
+        print(f"   pulled s3://{bucket}/{key} (resuming)")
+        return True
+    except Exception:
+        return False
