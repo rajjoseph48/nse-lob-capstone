@@ -29,7 +29,15 @@ from nse_dataset import load_nse
 from stats import set_seed
 from train import DEVICE, save_checkpoint, train
 
-MODEL_LR = {"deeplob": 1e-3, "mlplob": 1e-3, "tlob": 1e-4, "mambalob": 3e-4}
+MODEL_LR = {
+    "deeplob": 1e-3,
+    "mlplob": 1e-3,
+    "tlob": 1e-4,
+    "mambalob": 3e-4,
+    "bimambalob": 3e-4,
+    "convmambalob": 3e-4,
+    "biconvmambalob": 3e-4,
+}
 CLASS_NAMES = ["Down", "Stat", "Up"]
 
 

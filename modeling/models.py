@@ -16,6 +16,8 @@ Input convention (DeepLOB standard):
     Labels: 0=Down, 1=Stationary, 2=Up
 """
 
+from functools import partial
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -254,6 +256,57 @@ class _MambaBlock(nn.Module):
         return self.out_proj(y) + residual
 
 
+class _BiMamba(nn.Module):
+    """
+    Bidirectional wrapper around any Mamba block (Tier-B novelty).
+
+    A vanilla Mamba scan is strictly causal (left→right), which suits streaming
+    forecasting but discards the fact that, *within a fixed look-back window*, the
+    most recent events are as informative when read backwards. We run the same
+    look-back window forwards and backwards through two independent blocks and
+    average — letting each position attend to its full local neighbourhood while
+    keeping the O(L) cost (2× constant). Works with both the CUDA kernel and the
+    pure-PyTorch fallback since both map (B, L, d) → (B, L, d).
+    """
+
+    def __init__(self, mamba_cls, d_model: int, d_state: int = 16):
+        super().__init__()
+        self.fwd = mamba_cls(d_model, d_state=d_state)
+        self.bwd = mamba_cls(d_model, d_state=d_state)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        f = self.fwd(x)
+        b = torch.flip(self.bwd(torch.flip(x, dims=[1])), dims=[1])
+        return 0.5 * (f + b)
+
+
+def _resolve_mamba_cls(d_state: int, use_cuda_mamba: bool, who: str = "Mamba"):
+    """Return a Mamba block constructor: CUDA kernel if available, else fallback."""
+    mamba_cls = _MambaBlock
+    if use_cuda_mamba:
+        try:
+            from mamba_ssm import Mamba as CudaMamba
+
+            mamba_cls = lambda d, **kw: CudaMamba(  # noqa: E731
+                d_model=d, d_state=d_state, d_conv=4, expand=2
+            )
+            print(f"{who}: using mamba-ssm CUDA kernel.")
+        except ImportError:
+            print(f"{who}: mamba-ssm not available, using pure-PyTorch fallback.")
+    return mamba_cls
+
+
+def _make_mamba_layers(
+    mamba_cls, d_model: int, d_state: int, n_layers: int, bidirectional: bool
+) -> nn.ModuleList:
+    def one():
+        if bidirectional:
+            return _BiMamba(mamba_cls, d_model, d_state=d_state)
+        return mamba_cls(d_model, d_state=d_state)
+
+    return nn.ModuleList([one() for _ in range(n_layers)])
+
+
 class MambaLOB(nn.Module):
     """
     MambaLOB — Selective State Space Model for LOB mid-price direction prediction.
@@ -261,7 +314,7 @@ class MambaLOB(nn.Module):
 
     Architecture:
         Linear projection (40 → d_model)
-        → Mamba Block × n_layers       [selective temporal context]
+        → Mamba Block × n_layers       [selective temporal context; optionally bidirectional]
         → [optional] Spatial MHA       [feature-axis attention, from TLOB]
         → BiN                          [Bilinear Normalization, from TLOB]
         → FC(3) → logits
@@ -270,6 +323,8 @@ class MambaLOB(nn.Module):
         1. pip install mamba-ssm causal-conv1d
         2. Set use_cuda_mamba=True in the constructor.
         Fallback (_MambaBlock) is used when mamba_ssm is unavailable or on CPU.
+
+    bidirectional=True wraps each block in _BiMamba (Tier-B improved variant).
 
     Input:  (B, T=100, F=40)
     Output: (B, 3) logits
@@ -283,26 +338,15 @@ class MambaLOB(nn.Module):
         d_state: int = 16,
         n_layers: int = 2,
         spatial_heads: int = 0,  # 0 = no spatial MHA (ablation flag)
+        bidirectional: bool = False,
         use_cuda_mamba: bool = True,
     ):
         super().__init__()
         self.input_proj = nn.Linear(n_features, d_model)
 
-        # Try CUDA Mamba; fall back to pure-PyTorch block
-        mamba_cls = _MambaBlock
-        if use_cuda_mamba:
-            try:
-                from mamba_ssm import Mamba as CudaMamba
-
-                mamba_cls = lambda d, **kw: CudaMamba(
-                    d_model=d, d_state=d_state, d_conv=4, expand=2
-                )  # noqa: E731
-                print("MambaLOB: using mamba-ssm CUDA kernel.")
-            except ImportError:
-                print("MambaLOB: mamba-ssm not available, using pure-PyTorch fallback.")
-
-        self.mamba_layers = nn.ModuleList(
-            [mamba_cls(d_model, d_state=d_state) for _ in range(n_layers)]
+        mamba_cls = _resolve_mamba_cls(d_state, use_cuda_mamba, who="MambaLOB")
+        self.mamba_layers = _make_mamba_layers(
+            mamba_cls, d_model, d_state, n_layers, bidirectional
         )
 
         # Optional spatial self-attention over the feature axis (from TLOB)
@@ -332,6 +376,89 @@ class MambaLOB(nn.Module):
             x = xT.permute(0, 2, 1)  # (B, T, d_model)
 
         x = x[:, -1, :]  # last timestep  (B, d_model)
+        x = self.bn(x)
+        return self.fc(x)  # (B, 3)
+
+
+# ---------------------------------------------------------------------------
+# ConvMambaLOB — This work (Tier-B headline architecture)
+# ---------------------------------------------------------------------------
+class ConvMambaLOB(nn.Module):
+    """
+    ConvMambaLOB — hybrid CNN + Selective SSM (Tier-B novelty).
+
+    Motivation: DeepLOB pairs a strong *spatial* feature extractor (Conv + Inception
+    over LOB levels) with a *temporal* LSTM. MambaLOB drops the spatial stage and
+    feeds raw features straight into the SSM. ConvMambaLOB keeps DeepLOB's spatial
+    inductive bias but replaces its O(L) sequential LSTM with a selective SSM:
+
+        (B,1,T,F) → Conv stack → Inception   [local price×volume / level interactions]
+        → flatten channels×width per step     → (B, T', C·F')
+        → Linear → d_model
+        → Mamba Block × n_layers              [selective long-range temporal context]
+        → BiN → FC(3)
+
+    The conv front-end is layout-agnostic here (output dim discovered with a dummy
+    pass), so it accepts any feature_set (base40 … all/66). Goal: match/beat TLOB at
+    lower compute — i.e. "we designed a better LOB model", not "we applied Mamba".
+
+    Input:  (B, T=100, F)
+    Output: (B, 3) logits
+    """
+
+    def __init__(
+        self,
+        seq_len: int = 100,
+        n_features: int = 40,
+        d_model: int = 64,
+        d_state: int = 16,
+        n_layers: int = 2,
+        bidirectional: bool = False,
+        use_cuda_mamba: bool = True,
+    ):
+        super().__init__()
+        self.seq_len = seq_len
+
+        # DeepLOB-style spatial feature extractor (no temporal reduction in Inception)
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=(1, 2), stride=(1, 2)),
+            nn.LeakyReLU(0.01),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 32, kernel_size=(4, 1)),
+            nn.LeakyReLU(0.01),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 32, kernel_size=(4, 1)),
+            nn.LeakyReLU(0.01),
+            nn.BatchNorm2d(32),
+        )
+        self.inception = _InceptionModule(32, 32)
+
+        # Discover conv output shape so any feature width works
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, seq_len, n_features)
+            o = self.inception(self.conv(dummy))  # (1, C, T', F')
+            _, c_out, _, f_out = o.shape
+        self.proj = nn.Linear(c_out * f_out, d_model)
+
+        mamba_cls = _resolve_mamba_cls(d_state, use_cuda_mamba, who="ConvMambaLOB")
+        self.mamba_layers = _make_mamba_layers(
+            mamba_cls, d_model, d_state, n_layers, bidirectional
+        )
+
+        self.bn = BilinearNorm(d_model)
+        self.fc = nn.Linear(d_model, 3)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (B, T, F)
+        x = x.unsqueeze(1)  # (B, 1, T, F)
+        x = self.conv(x)  # (B, 32, T', F')
+        x = self.inception(x)  # (B, 32, T', F')
+        B, C, T, Fp = x.shape
+        x = x.permute(0, 2, 1, 3).reshape(B, T, C * Fp)  # (B, T', C*F')
+        x = self.proj(x)  # (B, T', d_model)
+        for layer in self.mamba_layers:
+            x = layer(x)
+        x = x[:, -1, :]  # last timestep
         x = self.bn(x)
         return self.fc(x)  # (B, 3)
 
@@ -377,6 +504,10 @@ MODEL_REGISTRY = {
     "mlplob": MLPLOB,
     "mambalob": MambaLOB,
     "tlob": TLOBModel,
+    # Tier-B improved MambaLOB variants (this work)
+    "bimambalob": partial(MambaLOB, bidirectional=True),
+    "convmambalob": ConvMambaLOB,
+    "biconvmambalob": partial(ConvMambaLOB, bidirectional=True),
 }
 
 
