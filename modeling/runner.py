@@ -173,6 +173,10 @@ def run_one(
 
         s3_put_area(s3, ckpt, area)
         s3_put_area(s3, metrics_json, area)
+        # Incremental results sync: push this shard's CSV after EVERY run so a
+        # mid-session kill (Kaggle timeout) still leaves finished runs on S3 to
+        # skip on resume — not just after the final merge cell.
+        s3_put_area(s3, out_csv, area)
     print(
         f"  -> wF1={mt['weighted_f1']:.4f} mF1={mt['macro_f1']:.4f} (F={n_features}, {elapsed:.0f}s)"
     )
