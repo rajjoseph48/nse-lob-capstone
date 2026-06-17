@@ -582,14 +582,47 @@ weighted $F_1$ matches it, while our macro $F_1$ ($\approx$72) matches \emph{ind
 \textbf{Mamba is primarily an efficiency win}: it trails on FI-2010 accuracy, yet on the NSE transfer it is
 competitive --- beating the CNN baseline (DeepLOB) on NIFTY --- at a fraction of the parameters and compute.
 
+\subsubsection{Improved MambaLOB Architectures (Tier-B)}
+We tested two architectural improvements to the vanilla SSM stack --- \emph{bidirectional} Mamba (a forward
+and a time-reversed scan, averaged) and \emph{ConvMambaLOB} (DeepLOB's Conv+Inception spatial front-end
+feeding a Mamba temporal core, replacing DeepLOB's sequential LSTM) --- plus their combination, all trained
+on the best (\texttt{all}) feature set against the TLOB transformer. Table~\ref{tab:tierb} reports the mean
+over both instruments and $k\in\{10,100\}$.
+\begin{table}[h]
+\centering
+\caption{Tier-B architectures (NIFTY+BANKNIFTY, mean over $k\in\{10,100\}$, \texttt{all} features, single seed).}
+\label{tab:tierb}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Model & Params & wF1 & mF1 & \% of TLOB wF1 \\
+\midrule
+MambaLOB (base)       & \textbf{70k}  & 0.595 & 0.508 & 89\% \\
+\;+ bidirectional     & 135k & 0.597 & 0.509 & 90\% \\
+\;+ Conv (ConvMambaLOB) & 144k & \textbf{0.602} & \textbf{0.518} & \textbf{90\%} \\
+\;+ both              & 209k & 0.587 & 0.508 & 88\% \\
+TLOB (SOTA)           & 1.80M & \textbf{0.666} & \textbf{0.570} & 100\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+\textbf{Honest verdict: an efficiency result, not an accuracy win.} TLOB still leads weighted \emph{and}
+macro $F_1$ in every (instrument, horizon) cell; our variants win none, trailing by $\approx$0.06--0.08 wF1.
+The contribution is the trade-off: \textbf{ConvMambaLOB recovers $\sim$90\% of the transformer's quality with
+$12.5\times$ fewer parameters}. Among our own designs the hybrid \emph{spatial-convolution} front-end is the
+decisive choice (best or near-best in all four cells); bidirectionality is roughly neutral on average (it
+helps BANKNIFTY $k{=}100$ by $+0.037$ but hurts NIFTY $k{=}10$), and \emph{stacking} both is the weakest
+Mamba variant --- more parameters, no gain, consistent with mild overfitting on the single-seed,
+one-month NSE sample. Multi-seed confidence intervals (Tier~C) are needed before claiming significance.
+
 \subsection{Originality and Innovation in Approach}
 \subsubsection{Creative Framing of the Problem}
 The first ML-ready NSE index-futures LOB benchmark, framed honestly for snapshot depth data (an ``event''
 is a change in the top-of-book), and a transaction-cost-relative labelling scheme that exposes when signal
 is economically meaningful.
 \subsubsection{Experimental Innovations}
-MambaLOB (selective SSM for LOB classification); a controlled long-context experiment exploiting Mamba's
-linear scaling; and two labelling schemes (fixed vs spread-relative) reported side by side.
+MambaLOB (selective SSM for LOB classification); \textbf{ConvMambaLOB}, a hybrid that fuses DeepLOB's spatial
+convolutions with a linear-time selective-SSM temporal core (Section~3.6); a controlled long-context
+experiment exploiting Mamba's linear scaling; and two labelling schemes (fixed vs spread-relative) reported
+side by side.
 
 \subsection{Risk Assessment and Project Management}
 \subsubsection{Progress Tracker vs.\ Original Timeline}
@@ -690,11 +723,12 @@ order-count channel, ablated against the raw window. Result: microstructure feat
 MambaLOB weighted-$F_1$ by up to $+0.068$ at k=100), order counts help only in combination, and book depth
 beyond level~10 is uninformative. Multi-seed CIs (Tier~C) remain to confirm significance.
 
-\noindent\emph{(B) Improved MambaLOB architecture (the headline novelty).} Move beyond the vanilla SSM stack
-to (i) \textbf{bidirectional Mamba} (forward + time-reversed scans concatenated --- valid for
-classification, the BiLSTM analog) and (ii) \textbf{ConvMambaLOB}, a hybrid that prepends DeepLOB-style
-convolutions (spatial LOB structure) to the linear-time Mamba temporal core. Goal: match or beat TLOB at a
-fraction of its compute.
+\noindent\emph{(B) Improved MambaLOB architecture (the headline novelty) --- \textbf{done}, see Section~3.6.}
+Built and evaluated (i) \textbf{bidirectional Mamba} and (ii) \textbf{ConvMambaLOB} (DeepLOB convolutions
+$\rightarrow$ linear-time Mamba core), plus their combination, against TLOB. Result: ConvMambaLOB recovers
+$\sim$90\% of TLOB's weighted-$F_1$ at $12.5\times$ fewer parameters --- an efficiency win, not an accuracy
+win (TLOB still leads). The spatial-convolution front-end is the decisive design; bidirectionality and
+stacking give diminishing returns. Multi-seed CIs (Tier~C) remain to confirm significance.
 
 \noindent\emph{(C) Rigour layer (expected practice).} Hyperparameter optimization (Optuna) on the best
 variant with an equal budget for baselines; a class-imbalance study (focal loss vs class-weighted CE vs
