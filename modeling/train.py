@@ -27,6 +27,7 @@ import torch.nn as nn
 from sklearn.metrics import f1_score
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.utils.data import DataLoader
 
 from fi2010_dataset import LOBDataset, class_weights, load_fi2010, make_loader
 from models import build_model
@@ -53,21 +54,44 @@ def train(
     lr: float = 1e-3,
     patience: int = 10,
     weight_loss: bool = True,
+    criterion: nn.Module | None = None,
+    sampler=None,
+    weight_decay: float = 1e-4,
     verbose: bool = True,
 ) -> dict:
     """
     Train a model with early stopping on validation weighted-F1.
 
+    Optional overrides (used by the HPO and class-imbalance studies; defaults
+    reproduce the original behaviour exactly):
+        criterion     custom loss module (e.g. focal / label-smoothing); when None,
+                      a (weighted) CrossEntropyLoss is built from ``weight_loss``.
+        sampler       a torch Sampler for the train loader (e.g. class-balanced
+                      WeightedRandomSampler); when given, shuffle is disabled.
+        weight_decay  AdamW weight decay (tunable in HPO).
+
     Returns:
         history dict with keys: train_loss, val_loss, val_f1, best_epoch
     """
     model = model.to(DEVICE)
-    train_loader = make_loader(train_ds, batch_size=batch_size, shuffle=True)
+    if sampler is not None:
+        train_loader = DataLoader(
+            train_ds,
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=0,
+            pin_memory=False,
+        )
+    else:
+        train_loader = make_loader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = make_loader(val_ds, batch_size=256, shuffle=False)
 
-    weights = class_weights(train_ds).to(DEVICE) if weight_loss else None
-    criterion = nn.CrossEntropyLoss(weight=weights)
-    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    if criterion is None:
+        weights = class_weights(train_ds).to(DEVICE) if weight_loss else None
+        criterion = nn.CrossEntropyLoss(weight=weights)
+    else:
+        criterion = criterion.to(DEVICE)
+    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
 
     history = {"train_loss": [], "val_loss": [], "val_f1": [], "best_epoch": 0}

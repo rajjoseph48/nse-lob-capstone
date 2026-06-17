@@ -82,10 +82,48 @@ def spec_tag(spec: dict) -> str:
         if spec.get("label_scheme", "A").upper() == "A"
         else f"_{spec['label_scheme'].upper()}"
     )
+    # strategy suffix only for the class-imbalance study (keeps default tags unchanged)
+    strat = spec.get("strategy")
+    strat_sfx = f"_{strat}" if strat and strat != "weighted_ce" else ""
     return (
         f"{spec['model']}_{spec['symbol']}_{spec.get('feature_set', 'base40')}"
-        f"_h{spec['horizon']}{sch}_s{spec.get('seed', 0)}"
+        f"_h{spec['horizon']}{sch}_s{spec.get('seed', 0)}{strat_sfx}"
     )
+
+
+def _strategy_train_kwargs(strategy: str | None, train_ds) -> dict:
+    """Map a class-imbalance strategy name to train() kwargs. None/weighted_ce = default."""
+    if not strategy or strategy == "weighted_ce":
+        return {"weight_loss": True}
+    if strategy == "plain_ce":
+        return {"weight_loss": False}
+    if strategy == "label_smoothing":
+        import torch.nn as nn
+
+        from fi2010_dataset import class_weights
+
+        return {
+            "criterion": nn.CrossEntropyLoss(
+                weight=class_weights(train_ds), label_smoothing=0.1
+            )
+        }
+    if strategy == "focal":
+        from fi2010_dataset import class_weights
+
+        from losses import FocalLoss
+
+        return {"criterion": FocalLoss(gamma=2.0, alpha=class_weights(train_ds))}
+    if strategy == "balanced_sampling":
+        from torch.utils.data import WeightedRandomSampler
+
+        from fi2010_dataset import class_weights
+
+        per_sample = class_weights(train_ds)[train_ds.y].double()
+        sampler = WeightedRandomSampler(
+            per_sample, num_samples=len(train_ds.y), replacement=True
+        )
+        return {"sampler": sampler, "weight_loss": False}
+    raise ValueError(f"unknown strategy '{strategy}'")
 
 
 def run_one(
@@ -122,6 +160,8 @@ def run_one(
     n_features = tr[0][0].shape[-1]
     net = build_model(model, seq_len=seq_len, n_features=n_features)
     lr = MODEL_LR.get(model, 1e-3)
+    strategy = spec.get("strategy")
+    strat_kwargs = _strategy_train_kwargs(strategy, tr)
     t0 = time.time()
     hist = train(
         net,
@@ -132,6 +172,7 @@ def run_one(
         batch_size=batch_size,
         lr=lr,
         verbose=True,
+        **strat_kwargs,
     )
     elapsed = time.time() - t0
     y_pred, y_true = collect_preds(net, te)
@@ -142,6 +183,10 @@ def run_one(
     ckpt = pathlib.Path(ckpt_dir) / f"{tag}.pt"
     save_checkpoint(net, str(ckpt))
 
+    conf = mt["confusion"]
+    recalls = [
+        round(conf[c][c] / max(sum(conf[c]), 1), 4) for c in range(3)
+    ]  # per-class recall: Down, Stat, Up
     row = {
         "model": model,
         "symbol": symbol,
@@ -149,6 +194,7 @@ def run_one(
         "label_scheme": label_scheme.upper(),
         "horizon": horizon,
         "seed": seed,
+        "strategy": strategy or "weighted_ce",
         "n_features": n_features,
         "n_params": sum(p.numel() for p in net.parameters()),
         "best_epoch": hist["best_epoch"],
@@ -158,6 +204,9 @@ def run_one(
         "test_macro_f1": round(mt["macro_f1"], 4),
         "test_weighted_f1": round(mt["weighted_f1"], 4),
         "test_mcc": round(mt["mcc"], 4),
+        "recall_down": recalls[0],
+        "recall_stat": recalls[1],
+        "recall_up": recalls[2],
         **bl,
         "train_time_s": round(elapsed, 1),
     }
