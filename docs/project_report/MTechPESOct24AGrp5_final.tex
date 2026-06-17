@@ -611,7 +611,42 @@ $12.5\times$ fewer parameters}. Among our own designs the hybrid \emph{spatial-c
 decisive choice (best or near-best in all four cells); bidirectionality is roughly neutral on average (it
 helps BANKNIFTY $k{=}100$ by $+0.037$ but hurts NIFTY $k{=}10$), and \emph{stacking} both is the weakest
 Mamba variant --- more parameters, no gain, consistent with mild overfitting on the single-seed,
-one-month NSE sample. Multi-seed confidence intervals (Tier~C) are needed before claiming significance.
+one-month NSE sample. Multi-seed confidence intervals (Tier~C, below) test which of these effects survive.
+
+\subsubsection{Statistical Significance and Calibration (Tier-C)}
+We re-ran the headline configurations over \textbf{3 seeds} (48 runs) and tested each claim two ways: a
+\emph{paired} test across the 12 (seed, instrument, horizon) cells, and a \emph{per-sample} paired bootstrap
++ McNemar test on a representative cell (NIFTY, $k{=}100$). Table~\ref{tab:tierc-sig} summarises.
+\begin{table}[h]
+\centering
+\caption{Tier-C significance (weighted-$F_1$). Across-seed: paired $t$-test over 12 cells. Per-sample:
+paired bootstrap 95\% CI + McNemar at NIFTY $k{=}100$.}
+\label{tab:tierc-sig}
+\begin{tabular}{@{}lccl@{}}
+\toprule
+Claim & Across-seed $\Delta$ ($p$) & Per-sample $\Delta$ & Verdict \\
+\midrule
+Features help (Mamba \texttt{all} vs \texttt{base40}) & $+0.084$ ($p{=}0.001$) & $+0.043$ (CI excl.\ 0) & \textbf{significant} \\
+ConvMambaLOB vs base MambaLOB & $+0.005$ ($p{=}0.25$) & $+0.015$ (CI excl.\ 0) & not robust \\
+Mamba / ConvMamba vs TLOB & $-0.07$ ($p{<}0.001$) & $-0.087$ (CI excl.\ 0) & TLOB ahead (sig.) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{(1) Microstructure feature engineering is significant} by every test --- the effect is large
+(across-seed $+0.084$ weighted-$F_1$, 11/12 cells) and especially dramatic on BANKNIFTY, where the raw
+\texttt{base40} input collapses to $\approx$0.45 while the engineered \texttt{all} set reaches $\approx$0.61.
+This is the strongest data-science result: the engineered features are what make the NSE signal learnable.
+\textbf{(2) The ConvMambaLOB gain is real in direction but not robust} --- it wins 8/12 cells and is positive
+per-sample, but across seeds the $+0.005$ average lies within seed noise ($p{=}0.25$). The per-sample test
+flags it ``significant'' only because $n{=}341{,}214$ makes any tiny difference significant; we therefore
+report it honestly as a small, consistent-but-not-significant improvement. \textbf{(3) TLOB's accuracy lead is
+statistically robust} ($p{<}0.001$, 0/12 cells), confirming the contribution is the efficiency trade-off
+(competitive accuracy at $12$--$25\times$ fewer parameters), not parity. \textbf{Calibration:} the proposed
+model is already well-calibrated (test ECE $=0.041$; the NLL-optimal temperature is $T{=}1.00$, i.e.\ no
+scaling needed), so its predicted probabilities can be used directly in the cost-aware backtest. The
+methodological lesson --- per-sample tests over-detect at large $n$, so the across-seed paired test is the
+meaningful measure of a \emph{generalizable} improvement --- is itself a reportable finding.
 
 \subsection{Originality and Innovation in Approach}
 \subsubsection{Creative Framing of the Problem}
@@ -645,9 +680,10 @@ FI-2010: standard CF\_7 (7 train / 1 val / 3 test days). NSE: chronological fron
 12 May--4 June; test 5--12 June). Normalization statistics are computed on training data only; windows and
 labels never cross a day/contract boundary.
 \subsubsection{Random Seed Control}
-A \texttt{set\_seed} utility seeds Python/NumPy/PyTorch; the headline configurations are scheduled for
-3-seed runs with bootstrap 95\% confidence intervals (deferred to the next phase). All results, metrics
-JSON, and checkpoints are versioned on S3 under \texttt{reproduction/}.
+A \texttt{set\_seed} utility seeds Python/NumPy/PyTorch; the headline configurations were run over 3 seeds
+with across-seed 95\% confidence intervals and paired significance tests (Section~3.6,
+Table~\ref{tab:tierc-sig}). All results, metrics JSON, and checkpoints are versioned on S3 under
+\texttt{experiments/}.
 
 \subsection{Scalability and Efficiency Considerations}
 \subsubsection{Memory, Time, and Resource Profiling}
@@ -730,11 +766,13 @@ $\sim$90\% of TLOB's weighted-$F_1$ at $12.5\times$ fewer parameters --- an effi
 win (TLOB still leads). The spatial-convolution front-end is the decisive design; bidirectionality and
 stacking give diminishing returns. Multi-seed CIs (Tier~C) remain to confirm significance.
 
-\noindent\emph{(C) Rigour layer (expected practice).} Hyperparameter optimization (Optuna) on the best
-variant with an equal budget for baselines; a class-imbalance study (focal loss vs class-weighted CE vs
-class-balanced sampling vs label smoothing); statistical significance (multi-seed bootstrap CIs +
-Diebold--Mariano / permutation tests for pairwise comparison); and probability calibration (temperature
-scaling) feeding the cost-aware backtest.
+\noindent\emph{(C) Rigour layer (expected practice) --- \textbf{significance + calibration done}, see
+Section~3.6, Table~\ref{tab:tierc-sig}.} The 3-seed study with paired across-seed and per-sample tests
+confirmed the feature-engineering gain ($p{=}0.001$) and the (significant) gap to TLOB, showed the
+ConvMambaLOB gain is not robust across seeds, and found the proposed model already well-calibrated
+(ECE $0.041$, $T{=}1.00$). Remaining: hyperparameter optimization (Optuna, equal budget for baselines) and the
+class-imbalance study (focal vs class-weighted CE vs balanced sampling vs label smoothing) --- both
+implemented as a dual-GPU, S3-resumable notebook and pending a final run.
 
 \noindent Also carried over from the interim plan: the Scheme-B confirmatory training, the cost-aware
 backtest, a walk-forward robustness check, and consolidation into the final report. A standalone
