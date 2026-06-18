@@ -484,26 +484,60 @@ Property & Dhan (20-depth) & Kite Connect & FI-2010 \\
 \midrule
 LOB levels & 20 & 5 & 10 \\
 Features (10-level) & 40 (direct match) & 20 (needs change) & 40 \\
-Update mechanism & event-driven (gap CV 3.3) & periodic $\sim$1s (CV 1.3) & event-driven \\
-Median inter-tick gap & 0.20 s & 1.0 s & $<$0.1 s \\
+Update mechanism & push, $\sim$0.4\,s cadence & periodic $\sim$1\,s & event-driven \\
+Median inter-tick gap & 0.40 s & 1.0 s & $<$0.1 s \\
+Update rate & $\sim$2.5 Hz & $\sim$1 Hz & per-event \\
 L1--L10 completeness & 100\% & n/a & 100\% \\
 Order-count field & yes & no & no \\
 Cost & low & higher & free \\
 \bottomrule
 \end{tabular}
 \end{table}
-Dhan wins on depth, event-driven granularity (structurally consistent with FI-2010), completeness, and
-cost. Beyond source selection, per-day cleaning drops: rows with crossed quotes ($P^b_1\!\ge\!P^a_1$);
+Dhan wins on depth (20 vs 5 levels, a direct 40-feature match to FI-2010), a $\sim$2.5$\times$ higher update
+rate, full L1--L10 completeness, the order-count field, and cost. Beyond source selection, per-day cleaning drops: rows with crossed quotes ($P^b_1\!\ge\!P^a_1$);
 rows with any missing level-1--10 field; and tick-level glitches (mid-price jumps $>$0.5\% relative to the
 previous valid mid). Empty/partial collection days (the broken expiry-roll files of 27--29 May) are
 excluded; the partial 11 May session is dropped.
 
 \subsubsection{Exploratory Data Analysis (EDA)}
-Active instruments reach $\approx$200--250 events/min in single-instrument capture; the heavy-tailed
-inter-tick gap distribution (coefficient of variation $\approx$3.3) confirms genuine \emph{event-driven}
-updates rather than periodic polling. Median spreads are a few basis points (NIFTY $\approx$2.5 bps),
-which --- as Section~3.6 shows --- has direct consequences for labelling. Class balance varies sharply with
-horizon and labelling scheme (Tables in Section~3.6).
+We characterise the engineered NSE data on the training days (NIFTY front-month). The collector records one
+row per server push, so the stored cadence reflects the Dhan feed itself: $\approx$154 NIFTY events/min,
+i.e.\ a \textbf{regular $\approx$0.4\,s ($\approx$2.5\,Hz) update}. The inter-tick gap distribution
+(Figure~\ref{fig:eda_gap}) is tightly concentrated in 0.2--0.7\,s (median 0.40\,s, $p_{99}$ 0.60\,s,
+coefficient of variation $0.34$) --- the twenty-depth feed delivers near-periodic snapshots rather than the
+heavy-tailed per-event stream of FI-2010. This is adequate for short-horizon prediction but is a genuine
+difference from the benchmark, and one reason the absolute NSE accuracy is lower (Section~3.6).
+
+The relative bid--ask spread (Figure~\ref{fig:eda_gap}, right) has a median of $\approx$3.3\,bps; because the
+horizon-$k$ mid-price move is often smaller than the spread, the labelling threshold has a decisive effect
+on the task (Section~3.6, Scheme B). The label distribution (Figure~\ref{fig:eda_label}) shifts sharply with
+horizon: under the fixed threshold the Stationary class shrinks from $\approx$19\% at $k{=}10$ to
+$\approx$4\% at $k{=}100$, so the long-horizon task is effectively binary (Down/Up) --- which is why macro
+and weighted $F_1$ converge at long horizons. A representative intraday mid-price trace
+(Figure~\ref{fig:eda_mid}) shows the trending, non-stationary character of a single session.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{eda_label_dist.png}
+\caption{NSE (NIFTY) Scheme-A label distribution by horizon. The Stationary class shrinks from $\approx$19\%
+at $k{=}10$ to $\approx$4\% at $k{=}100$ as more mid-price moves exceed the fixed threshold.}
+\label{fig:eda_label}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.48\linewidth]{eda_intertick.png}\hfill
+\includegraphics[width=0.48\linewidth]{eda_spread.png}
+\caption{Left: inter-tick gap distribution (log axis) --- a regular $\approx$0.4\,s cadence (CV 0.34), not
+heavy-tailed. Right: relative bid--ask spread, median $\approx$3.3\,bps.}
+\label{fig:eda_gap}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{eda_midprice.png}
+\caption{Representative intraday front-month mid-price (NIFTY, 12 May 2026), illustrating the trending,
+non-stationary character of a single trading session.}
+\label{fig:eda_mid}
+\end{figure}
 
 \subsubsection{Pre-processing Pipelines}
 The pipeline that aligns Dhan to the FI-2010 contract (implemented in \texttt{modeling/nse\_dataset.py}):
