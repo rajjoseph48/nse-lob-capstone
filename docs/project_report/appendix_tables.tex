@@ -1,0 +1,195 @@
+{\small
+\appendix
+
+\section{Detailed Result Tables}
+
+This appendix lists the complete per-run results behind the summary tables in Chapter~3. All NSE runs use Scheme~A (fixed $\alpha{=}10^{-5}$) unless noted; metrics are on the held-out test split. Checkpoints and metrics JSON for every run are versioned on S3 under \texttt{experiments/<area>/}.
+
+\subsection{NSE Scheme-A transfer matrix (32 runs)}
+
+\begin{longtable}{@{}lllrrrrrr@{}}
+\caption{NSE Scheme-A: all four models $\times$ two instruments $\times$ four horizons. Lift = wF1 minus the best naive baseline.}\label{tab:app-nse}\\
+\toprule
+Model & Symbol & $k$ & Params & wF1 & mF1 & Acc & MCC & Lift \\
+\midrule
+\endfirsthead
+\multicolumn{9}{@{}l}{\small\itshape \tablename~\thetable\ (continued)}\\
+\toprule
+Model & Symbol & $k$ & Params & wF1 & mF1 & Acc & MCC & Lift \\
+\midrule
+\endhead
+\midrule \multicolumn{9}{r@{}}{\small continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+deeplob & BANKNIFTY & 10 & 191k & 0.4574 & 0.4570 & 0.4578 & 0.1896 & 0.1165 \\
+deeplob & BANKNIFTY & 20 & 191k & 0.4625 & 0.4308 & 0.4553 & 0.1682 & 0.0811 \\
+deeplob & BANKNIFTY & 50 & 191k & 0.4936 & 0.3884 & 0.4697 & 0.1353 & 0.0543 \\
+deeplob & BANKNIFTY & 100 & 191k & 0.4962 & 0.3680 & 0.4796 & 0.1334 & 0.0332 \\
+mambalob & BANKNIFTY & 10 & 68k & 0.4514 & 0.4483 & 0.4511 & 0.1765 & 0.1105 \\
+mambalob & BANKNIFTY & 20 & 68k & 0.4687 & 0.4163 & 0.4638 & 0.1496 & 0.0873 \\
+mambalob & BANKNIFTY & 50 & 68k & 0.4659 & 0.3676 & 0.4292 & 0.1271 & 0.0266 \\
+mambalob & BANKNIFTY & 100 & 68k & 0.4784 & 0.3536 & 0.4461 & 0.0865 & 0.0154 \\
+mlplob & BANKNIFTY & 10 & 529k & 0.3544 & 0.3562 & 0.3579 & 0.0668 & 0.0135 \\
+mlplob & BANKNIFTY & 20 & 529k & 0.4071 & 0.3650 & 0.4158 & 0.1092 & 0.0257 \\
+mlplob & BANKNIFTY & 50 & 529k & 0.4638 & 0.3713 & 0.4261 & 0.1997 & 0.0245 \\
+mlplob & BANKNIFTY & 100 & 529k & 0.4698 & 0.3514 & 0.3908 & 0.2110 & 0.0068 \\
+tlob & BANKNIFTY & 10 & 1.80M & 0.6393 & 0.6323 & 0.6354 & 0.4568 & 0.2984 \\
+tlob & BANKNIFTY & 20 & 1.80M & 0.6498 & 0.5983 & 0.6355 & 0.4433 & 0.2684 \\
+tlob & BANKNIFTY & 50 & 1.80M & 0.6890 & 0.5535 & 0.6489 & 0.4523 & 0.2497 \\
+tlob & BANKNIFTY & 100 & 1.80M & 0.7171 & 0.5255 & 0.7044 & 0.4696 & 0.2541 \\
+deeplob & NIFTY & 10 & 191k & 0.4440 & 0.4232 & 0.4524 & 0.1512 & 0.0947 \\
+deeplob & NIFTY & 20 & 191k & 0.4814 & 0.4252 & 0.4896 & 0.1690 & 0.1042 \\
+deeplob & NIFTY & 50 & 191k & 0.4933 & 0.3949 & 0.4897 & 0.1386 & 0.0681 \\
+deeplob & NIFTY & 100 & 191k & 0.5162 & 0.3885 & 0.5037 & 0.1428 & 0.0655 \\
+mambalob & NIFTY & 10 & 68k & 0.5217 & 0.4963 & 0.5236 & 0.2684 & 0.1724 \\
+mambalob & NIFTY & 20 & 68k & 0.5514 & 0.4919 & 0.5460 & 0.2908 & 0.1742 \\
+mambalob & NIFTY & 50 & 68k & 0.5750 & 0.4643 & 0.5316 & 0.2895 & 0.1498 \\
+mambalob & NIFTY & 100 & 68k & 0.5940 & 0.4433 & 0.5845 & 0.2723 & 0.1433 \\
+mlplob & NIFTY & 10 & 529k & 0.4639 & 0.4397 & 0.4657 & 0.1798 & 0.1146 \\
+mlplob & NIFTY & 20 & 529k & 0.5324 & 0.4430 & 0.5654 & 0.2750 & 0.1552 \\
+mlplob & NIFTY & 50 & 529k & 0.6042 & 0.4698 & 0.6141 & 0.3322 & 0.1790 \\
+mlplob & NIFTY & 100 & 529k & 0.6398 & 0.4588 & 0.6591 & 0.3834 & 0.1891 \\
+tlob & NIFTY & 10 & 1.80M & 0.5989 & 0.5789 & 0.5901 & 0.3877 & 0.2496 \\
+tlob & NIFTY & 20 & 1.80M & 0.6266 & 0.5702 & 0.6091 & 0.4045 & 0.2494 \\
+tlob & NIFTY & 50 & 1.80M & 0.6870 & 0.5620 & 0.6641 & 0.4557 & 0.2618 \\
+tlob & NIFTY & 100 & 1.80M & 0.7093 & 0.5316 & 0.6989 & 0.4673 & 0.2586 \\
+\end{longtable}
+
+\subsection{Tier-A microstructure feature ablation (12 runs)}
+
+\begin{longtable}{@{}lllrrrrrr@{}}
+\caption{Tier-A feature ablation (MambaLOB and a TLOB spot-check, NIFTY).}\label{tab:app-feat}\\
+\toprule
+Model & Symbol & Feat.\ set & $k$ & $F$ & Params & wF1 & mF1 & Acc \\
+\midrule
+\endfirsthead
+\multicolumn{9}{@{}l}{\small\itshape \tablename~\thetable\ (continued)}\\
+\toprule
+Model & Symbol & Feat.\ set & $k$ & $F$ & Params & wF1 & mF1 & Acc \\
+\midrule
+\endhead
+\midrule \multicolumn{9}{r@{}}{\small continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+mambalob & NIFTY & all & 10 & 66 & 70k & 0.5418 & 0.5209 & 0.5420 \\
+mambalob & NIFTY & base40 & 10 & 40 & 68k & 0.5175 & 0.4957 & 0.5130 \\
+tlob & NIFTY & base40 & 10 & 40 & 1.80M & 0.5989 & 0.5789 & 0.5901 \\
+mambalob & NIFTY & depth80 & 10 & 80 & 71k & 0.5149 & 0.4884 & 0.5198 \\
+mambalob & NIFTY & micro & 10 & 46 & 69k & 0.5455 & 0.5217 & 0.5513 \\
+tlob & NIFTY & micro & 10 & 46 & 1.80M & 0.6063 & 0.5852 & 0.6003 \\
+mambalob & NIFTY & orders60 & 10 & 60 & 70k & 0.4488 & 0.4259 & 0.4567 \\
+mambalob & NIFTY & all & 100 & 66 & 70k & 0.6368 & 0.4757 & 0.6285 \\
+mambalob & NIFTY & base40 & 100 & 40 & 68k & 0.5685 & 0.4214 & 0.5606 \\
+mambalob & NIFTY & depth80 & 100 & 80 & 71k & 0.5706 & 0.4218 & 0.5698 \\
+mambalob & NIFTY & micro & 100 & 46 & 69k & 0.6080 & 0.4561 & 0.5984 \\
+mambalob & NIFTY & orders60 & 100 & 60 & 70k & 0.5612 & 0.4208 & 0.5458 \\
+\end{longtable}
+
+\subsection{Tier-B architecture comparison (20 runs)}
+
+\begin{longtable}{@{}lllrrrrrr@{}}
+\caption{Tier-B: improved MambaLOB variants vs.\ TLOB on the \texttt{all} feature set.}\label{tab:app-arch}\\
+\toprule
+Model & Symbol & $k$ & Params & wF1 & mF1 & Acc & MCC & Train (s) \\
+\midrule
+\endfirsthead
+\multicolumn{9}{@{}l}{\small\itshape \tablename~\thetable\ (continued)}\\
+\toprule
+Model & Symbol & $k$ & Params & wF1 & mF1 & Acc & MCC & Train (s) \\
+\midrule
+\endhead
+\midrule \multicolumn{9}{r@{}}{\small continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+biconvmambalob & BANKNIFTY & 10 & 209k & 0.6136 & 0.6094 & 0.6112 & 0.4223 & 2575 \\
+bimambalob & BANKNIFTY & 10 & 135k & 0.6097 & 0.6051 & 0.6074 & 0.4142 & 1372 \\
+convmambalob & BANKNIFTY & 10 & 144k & 0.6192 & 0.6139 & 0.6174 & 0.4256 & 2235 \\
+mambalob & BANKNIFTY & 10 & 70k & 0.6064 & 0.6011 & 0.6044 & 0.4084 & 656 \\
+tlob & BANKNIFTY & 10 & 1.80M & 0.6319 & 0.6264 & 0.6262 & 0.4561 & 3715 \\
+biconvmambalob & BANKNIFTY & 100 & 209k & 0.5701 & 0.4252 & 0.5274 & 0.2947 & 1706 \\
+bimambalob & BANKNIFTY & 100 & 135k & 0.6258 & 0.4630 & 0.5999 & 0.3204 & 839 \\
+convmambalob & BANKNIFTY & 100 & 144k & 0.6113 & 0.4560 & 0.5517 & 0.3222 & 1471 \\
+mambalob & BANKNIFTY & 100 & 70k & 0.5889 & 0.4364 & 0.5667 & 0.2699 & 523 \\
+tlob & BANKNIFTY & 100 & 1.80M & 0.7121 & 0.5315 & 0.6812 & 0.4590 & 3079 \\
+biconvmambalob & NIFTY & 10 & 209k & 0.5404 & 0.5212 & 0.5400 & 0.2978 & 3022 \\
+bimambalob & NIFTY & 10 & 135k & 0.5286 & 0.5033 & 0.5376 & 0.2850 & 1523 \\
+convmambalob & NIFTY & 10 & 144k & 0.5471 & 0.5273 & 0.5472 & 0.3071 & 2246 \\
+mambalob & NIFTY & 10 & 70k & 0.5423 & 0.5209 & 0.5439 & 0.2995 & 738 \\
+tlob & NIFTY & 10 & 1.80M & 0.6052 & 0.5845 & 0.5988 & 0.3958 & 5007 \\
+biconvmambalob & NIFTY & 100 & 209k & 0.6243 & 0.4767 & 0.5821 & 0.3341 & 1728 \\
+bimambalob & NIFTY & 100 & 135k & 0.6230 & 0.4644 & 0.6238 & 0.3323 & 705 \\
+convmambalob & NIFTY & 100 & 144k & 0.6303 & 0.4762 & 0.6116 & 0.3416 & 1448 \\
+mambalob & NIFTY & 100 & 70k & 0.6430 & 0.4728 & 0.6474 & 0.3527 & 294 \\
+tlob & NIFTY & 100 & 1.80M & 0.7138 & 0.5375 & 0.7037 & 0.4764 & 3113 \\
+\end{longtable}
+
+\subsection{Tier-C multi-seed study (48 runs)}
+
+\begin{longtable}{@{}lllrrrrr@{}}
+\caption{Tier-C: headline configurations over 3 seeds (significance/CIs in Table~\ref{tab:tierc-sig}).}\label{tab:app-tierc}\\
+\toprule
+Model/feat. & Symbol & $k$ & Seed & wF1 & mF1 & Acc & MCC \\
+\midrule
+\endfirsthead
+\multicolumn{8}{@{}l}{\small\itshape \tablename~\thetable\ (continued)}\\
+\toprule
+Model/feat. & Symbol & $k$ & Seed & wF1 & mF1 & Acc & MCC \\
+\midrule
+\endhead
+\midrule \multicolumn{8}{r@{}}{\small continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+convmambalob/all & BANKNIFTY & 10 & 0 & 0.6169 & 0.6111 & 0.6157 & 0.4209 \\
+convmambalob/all & BANKNIFTY & 10 & 1 & 0.6103 & 0.6067 & 0.6072 & 0.4221 \\
+convmambalob/all & BANKNIFTY & 10 & 2 & 0.6102 & 0.6065 & 0.6074 & 0.4230 \\
+mambalob/all & BANKNIFTY & 10 & 0 & 0.6068 & 0.6016 & 0.6046 & 0.4079 \\
+mambalob/all & BANKNIFTY & 10 & 1 & 0.6121 & 0.6077 & 0.6096 & 0.4180 \\
+mambalob/all & BANKNIFTY & 10 & 2 & 0.6082 & 0.6037 & 0.6062 & 0.4119 \\
+mambalob/base40 & BANKNIFTY & 10 & 0 & 0.4511 & 0.4488 & 0.4508 & 0.1807 \\
+mambalob/base40 & BANKNIFTY & 10 & 1 & 0.4399 & 0.4379 & 0.4429 & 0.1684 \\
+mambalob/base40 & BANKNIFTY & 10 & 2 & 0.4483 & 0.4434 & 0.4522 & 0.1737 \\
+tlob/all & BANKNIFTY & 10 & 0 & 0.6319 & 0.6264 & 0.6262 & 0.4561 \\
+tlob/all & BANKNIFTY & 10 & 1 & 0.6343 & 0.6289 & 0.6289 & 0.4587 \\
+tlob/all & BANKNIFTY & 10 & 2 & 0.6422 & 0.6353 & 0.6386 & 0.4610 \\
+convmambalob/all & BANKNIFTY & 100 & 0 & 0.5876 & 0.4392 & 0.5092 & 0.3066 \\
+convmambalob/all & BANKNIFTY & 100 & 1 & 0.6244 & 0.4611 & 0.5835 & 0.3222 \\
+convmambalob/all & BANKNIFTY & 100 & 2 & 0.6053 & 0.4524 & 0.5314 & 0.3247 \\
+mambalob/all & BANKNIFTY & 100 & 0 & 0.6126 & 0.4509 & 0.5903 & 0.2920 \\
+mambalob/all & BANKNIFTY & 100 & 1 & 0.5952 & 0.4374 & 0.5870 & 0.2872 \\
+mambalob/all & BANKNIFTY & 100 & 2 & 0.6096 & 0.4498 & 0.5922 & 0.2882 \\
+mambalob/base40 & BANKNIFTY & 100 & 0 & 0.4671 & 0.3469 & 0.4270 & 0.0869 \\
+mambalob/base40 & BANKNIFTY & 100 & 1 & 0.4598 & 0.3421 & 0.4182 & 0.0792 \\
+mambalob/base40 & BANKNIFTY & 100 & 2 & 0.4957 & 0.3627 & 0.4763 & 0.0921 \\
+tlob/all & BANKNIFTY & 100 & 0 & 0.7121 & 0.5315 & 0.6812 & 0.4590 \\
+tlob/all & BANKNIFTY & 100 & 1 & 0.7211 & 0.5260 & 0.7180 & 0.4795 \\
+tlob/all & BANKNIFTY & 100 & 2 & 0.7096 & 0.5279 & 0.6781 & 0.4566 \\
+convmambalob/all & NIFTY & 10 & 0 & 0.5440 & 0.5254 & 0.5422 & 0.3032 \\
+convmambalob/all & NIFTY & 10 & 1 & 0.5404 & 0.5219 & 0.5390 & 0.2980 \\
+convmambalob/all & NIFTY & 10 & 2 & 0.5468 & 0.5264 & 0.5470 & 0.3060 \\
+mambalob/all & NIFTY & 10 & 0 & 0.5413 & 0.5204 & 0.5421 & 0.2977 \\
+mambalob/all & NIFTY & 10 & 1 & 0.5334 & 0.5092 & 0.5395 & 0.2882 \\
+mambalob/all & NIFTY & 10 & 2 & 0.5339 & 0.5083 & 0.5435 & 0.2927 \\
+mambalob/base40 & NIFTY & 10 & 0 & 0.5339 & 0.5114 & 0.5278 & 0.2858 \\
+mambalob/base40 & NIFTY & 10 & 1 & 0.5265 & 0.5008 & 0.5290 & 0.2766 \\
+mambalob/base40 & NIFTY & 10 & 2 & 0.5421 & 0.5246 & 0.5321 & 0.3068 \\
+tlob/all & NIFTY & 10 & 0 & 0.6052 & 0.5845 & 0.5988 & 0.3958 \\
+tlob/all & NIFTY & 10 & 1 & 0.6069 & 0.5837 & 0.6046 & 0.3974 \\
+tlob/all & NIFTY & 10 & 2 & 0.6067 & 0.5845 & 0.6032 & 0.3967 \\
+convmambalob/all & NIFTY & 100 & 0 & 0.6425 & 0.4829 & 0.6269 & 0.3525 \\
+convmambalob/all & NIFTY & 100 & 1 & 0.6250 & 0.4758 & 0.5966 & 0.3273 \\
+convmambalob/all & NIFTY & 100 & 2 & 0.6167 & 0.4645 & 0.5931 & 0.3163 \\
+mambalob/all & NIFTY & 100 & 0 & 0.6271 & 0.4731 & 0.6121 & 0.3332 \\
+mambalob/all & NIFTY & 100 & 1 & 0.6179 & 0.4482 & 0.6305 & 0.3172 \\
+mambalob/all & NIFTY & 100 & 2 & 0.6175 & 0.4602 & 0.6066 & 0.3107 \\
+mambalob/base40 & NIFTY & 100 & 0 & 0.5845 & 0.4343 & 0.5753 & 0.2684 \\
+mambalob/base40 & NIFTY & 100 & 1 & 0.5724 & 0.4284 & 0.5581 & 0.2638 \\
+mambalob/base40 & NIFTY & 100 & 2 & 0.5851 & 0.4387 & 0.5641 & 0.2640 \\
+tlob/all & NIFTY & 100 & 0 & 0.7138 & 0.5375 & 0.7037 & 0.4764 \\
+tlob/all & NIFTY & 100 & 1 & 0.7189 & 0.5485 & 0.6991 & 0.4820 \\
+tlob/all & NIFTY & 100 & 2 & 0.6982 & 0.5334 & 0.6701 & 0.4556 \\
+\end{longtable}
+}
