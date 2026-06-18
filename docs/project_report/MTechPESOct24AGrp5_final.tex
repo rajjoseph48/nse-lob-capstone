@@ -989,6 +989,47 @@ scaling is needed), so its predicted probabilities can be used directly in the c
 methodological point worth recording is that per-sample tests over-detect at large $n$, so the across-seed
 paired test is the more meaningful measure of a generalizable improvement.
 
+\subsubsection{Hyperparameter Optimization and Class Imbalance (Tier-C)}
+To rule out that the model comparisons merely reflect lucky or unlucky default settings, we ran an Optuna
+(TPE) hyperparameter search for the two proposed models on NIFTY $k{=}100$, tuning learning rate, batch size,
+weight decay, and the Mamba width/depth ($\approx$25 trials each). Two results stand out. First, tuning gives
+only a \emph{modest} improvement (validation weighted-$F_1$ rises by $\approx$0.012--0.015), and the tuned
+learning rates ($\approx$2.4--2.9$\times10^{-4}$) sit close to the $3\times10^{-4}$ default, confirming the
+prior settings were already near-optimal. Second, and more telling, the tuned \emph{base} MambaLOB
+(val $0.675$) slightly \emph{beats} the tuned ConvMambaLOB (val $0.669$), and its best configuration is
+\emph{smaller} than the default (one Mamba layer, $d_{\mathrm{model}}{=}32$). Under an equal tuning budget the
+simpler, tinier model wins --- the same conclusion as the multi-seed test, and the strongest form of the
+efficiency argument: a minimal selective-SSM is the sweet spot, not the convolutional hybrid. (TLOB was
+excluded from the search for compute reasons, so this is a within-family comparison.)
+
+We also studied four remedies for the class imbalance against the default class-weighted cross-entropy
+(Table~\ref{tab:imb}), using ConvMambaLOB on NIFTY. At the shorter, more balanced horizon ($k{=}10$) no remedy
+beats the default. At $k{=}100$, where the Stationary class is only $\approx$5\% of samples, focal loss gives
+a small gain (macro-$F_1$ $0.475\!\rightarrow\!0.481$, weighted $0.627\!\rightarrow\!0.646$), but it does so by
+modelling the dominant directional classes better while almost ignoring Stationary (recall $0.11$).
+Strategies that explicitly raise minority recall --- balanced sampling and label smoothing --- do lift
+Stationary recall (to $0.40$ and $0.63$) but at a clear net cost to overall macro-$F_1$. The minority class
+cannot be recovered without sacrificing accuracy elsewhere; class-weighted cross-entropy remains a sound
+default, with focal a marginal alternative at long horizons.
+\begin{table}[h]
+\centering
+\caption{Class-imbalance strategies (ConvMambaLOB, NIFTY): macro-$F_1$ and per-class recall.}
+\label{tab:imb}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+& \multicolumn{3}{c}{$k{=}10$} & \multicolumn{3}{c}{$k{=}100$} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+Strategy & mF1 & rec.\ Stat & wF1 & mF1 & rec.\ Stat & wF1 \\
+\midrule
+weighted CE (default) & \textbf{0.525} & 0.389 & 0.544 & 0.475 & 0.217 & 0.627 \\
+focal                 & 0.525 & 0.447 & 0.542 & \textbf{0.481} & 0.108 & \textbf{0.646} \\
+label smoothing       & 0.523 & 0.412 & 0.542 & 0.397 & \textbf{0.632} & 0.510 \\
+balanced sampling     & 0.520 & 0.396 & 0.539 & 0.443 & 0.396 & 0.578 \\
+plain CE              & 0.499 & 0.209 & 0.531 & 0.442 & 0.000 & 0.626 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Originality and Innovation in Approach}
 \subsubsection{Creative Framing of the Problem}
 The first ML-ready NSE index-futures LOB benchmark, framed honestly for snapshot depth data (an ``event''
@@ -1004,10 +1045,10 @@ side by side.
 \subsubsection{Progress Tracker vs.\ Original Timeline}
 Completed: literature survey; the engineered NSE dataset + pipeline; FI-2010 reproduction (DeepLOB, MLPLOB,
 TLOB); MambaLOB on FI-2010 + efficiency analysis; the \emph{complete} NSE Scheme-A matrix (all four models,
-both instruments, four horizons); the Phase-2 microstructure feature ablation (Tier-A), the improved
-architectures (Tier-B), and the multi-seed significance + calibration study (Tier-C). Deferred (next phase):
-hyperparameter optimisation and the class-imbalance study (both implemented as a dual-GPU, S3-resumable
-notebook, pending a final run), Scheme-B confirmatory training, and the cost-aware backtest.
+both instruments, four horizons); and the full Phase-2 data-science layer --- the microstructure feature
+ablation (Tier-A), the improved architectures (Tier-B), and the Tier-C rigour study (multi-seed significance,
+calibration, hyperparameter optimisation, and the class-imbalance comparison). Deferred (next phase):
+Scheme-B confirmatory training, the cost-aware backtest, and a walk-forward robustness check.
 \subsubsection{Bottlenecks and Delays}
 Free-tier GPU throttling (mitigated by moving from Colab to Kaggle, which has a separate quota); a Kaggle
 P100 incompatible with the latest PyTorch CUDA build (use T4); \texttt{mamba-ssm} failing to build under
@@ -1116,13 +1157,14 @@ $\sim$90\% of TLOB's weighted-$F_1$ at $12.5\times$ fewer parameters --- an effi
 win (TLOB still leads). The spatial-convolution front-end is the decisive design; bidirectionality and
 stacking give diminishing returns. Multi-seed CIs (Tier~C) remain to confirm significance.
 
-\noindent\emph{(C) Rigour layer (expected practice) --- \textbf{significance + calibration done}, see
-Section~3.6, Table~\ref{tab:tierc-sig}.} The 3-seed study with paired across-seed and per-sample tests
+\noindent\emph{(C) Rigour layer (expected practice) --- \textbf{done}, see Section~3.6,
+Tables~\ref{tab:tierc-sig} and~\ref{tab:imb}.} The 3-seed study with paired across-seed and per-sample tests
 confirmed the feature-engineering gain ($p{=}0.001$) and the (significant) gap to TLOB, showed the
 ConvMambaLOB gain is not robust across seeds, and found the proposed model already well-calibrated
-(ECE $0.041$, $T{=}1.00$). Remaining: hyperparameter optimization (Optuna, equal budget for baselines) and the
-class-imbalance study (focal vs class-weighted CE vs balanced sampling vs label smoothing) --- both
-implemented as a dual-GPU, S3-resumable notebook and pending a final run.
+(ECE $0.041$, $T{=}1.00$). Hyperparameter optimization (Optuna) gave only a modest gain and showed the tuned
+base MambaLOB --- at one layer and $d_{\mathrm{model}}{=}32$ --- matches the tuned hybrid, reinforcing the
+efficiency story; the class-imbalance study found class-weighted cross-entropy a sound default (focal a
+marginal alternative at long horizons).
 
 \noindent Also carried over from the interim plan: the Scheme-B confirmatory training, the cost-aware
 backtest, a walk-forward robustness check, and consolidation into the final report. A standalone
