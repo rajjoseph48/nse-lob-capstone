@@ -271,9 +271,9 @@ and a linear classifier:
 X \xrightarrow{\text{Linear}} \text{Mamba}\times n \xrightarrow{(\text{opt.\ feature attn})}
 \text{BiN} \xrightarrow{\text{FC}} \text{logits}\in\mathbb{R}^{3}.
 \]
-On GPU it uses the CUDA \texttt{mamba-ssm} kernel; a pure-PyTorch fallback exists for CPU/debug. The
-\emph{ConvMambaLOB} variant (introduced in Phase~2) replaces the linear input projection with DeepLOB's
-convolutional spatial front-end, feeding a Mamba temporal core (Figure~\ref{fig:arch}).
+On GPU it uses the CUDA \texttt{mamba-ssm} kernel; a pure-PyTorch fallback exists for CPU/debug. Phase-2
+variants (a convolutional front-end and a bidirectional scan) build on this core and are detailed with the
+experiments (Section~3.6, Figure~\ref{fig:tierbvariants}).
 
 \begin{figure}[h]
 \centering
@@ -282,29 +282,17 @@ convolutional spatial front-end, feeding a Mamba temporal core (Figure~\ref{fig:
   box/.style={draw, rounded corners=2pt, minimum height=7mm, minimum width=20mm, align=center, fill=blue!5},
   mamba/.style={box, fill=green!8},
   io/.style={box, fill=gray!8},
-  >={Stealth[round]}, node distance=4.2mm]
-% MambaLOB row
+  >={Stealth[round]}, node distance=5mm]
 \node[io] (in1) {Input\\$(B,100,F)$};
 \node[box, right=of in1] (proj1) {Linear\\$F\!\to\!d$};
-\node[mamba, right=of proj1] (m1) {Mamba\\$\times n$};
+\node[mamba, right=of proj1] (m1) {Mamba block\\$\times n$};
 \node[box, right=of m1] (bn1) {BiN};
 \node[io, right=of bn1] (fc1) {FC\\$\to\!3$};
 \draw[->] (in1)--(proj1); \draw[->] (proj1)--(m1); \draw[->] (m1)--(bn1); \draw[->] (bn1)--(fc1);
-\node[left=1mm of in1, rotate=90, anchor=south, font=\scriptsize\bfseries] {MambaLOB};
-% ConvMambaLOB row
-\node[io, below=10mm of in1] (in2) {Input\\$(B,100,F)$};
-\node[box, right=of in2, fill=orange!10] (conv2) {Conv +\\Inception};
-\node[box, right=of conv2] (proj2) {Linear\\$\to\!d$};
-\node[mamba, right=of proj2] (m2) {Mamba\\$\times n$};
-\node[box, right=of m2] (bn2) {BiN};
-\node[io, right=of bn2] (fc2) {FC\\$\to\!3$};
-\draw[->] (in2)--(conv2); \draw[->] (conv2)--(proj2); \draw[->] (proj2)--(m2); \draw[->] (m2)--(bn2); \draw[->] (bn2)--(fc2);
-\node[left=1mm of in2, rotate=90, anchor=south, font=\scriptsize\bfseries] {ConvMambaLOB};
 \end{tikzpicture}
-\caption{Proposed architectures. MambaLOB (top) projects the LOB vector and applies $n$ selective
-state-space blocks ($O(L)$ temporal mixing) before Bilinear Normalization and a 3-class head. ConvMambaLOB
-(bottom) prepends DeepLOB's Conv\,+\,Inception spatial extractor, replacing DeepLOB's sequential LSTM with the
-Mamba core. Bidirectional and combined variants were also evaluated (Section~3.6).}
+\caption{Proposed MambaLOB. The LOB window is projected to $d_{\mathrm{model}}$, passed through $n$ selective
+state-space (Mamba) blocks for $O(L)$ temporal mixing (block internals in Figure~\ref{fig:mambablock}), then
+Bilinear Normalization and a 3-class head.}
 \label{fig:arch}
 \end{figure}
 
@@ -347,6 +335,49 @@ threshold (Scheme A: fixed $\alpha$; Scheme B: spread-relative $\theta$).
 DeepLOB stacks $1\times2$ convolutions (fuse price/volume, then sides), a $1\times10$ convolution (fuse
 levels), an Inception module, and an LSTM. MLPLOB flattens and applies MLP blocks with Bilinear
 Normalization. TLOB alternates temporal and feature self-attention with a progressive MLP head.
+Figure~\ref{fig:baselines} shows the three reproduced baselines as block pipelines.
+
+\begin{figure}[h]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\footnotesize, >={Stealth[round]}, node distance=4mm,
+  b/.style={draw, rounded corners=2pt, align=center, minimum height=8mm, minimum width=17mm, fill=blue!5},
+  io/.style={b, fill=gray!10}, conv/.style={b, fill=orange!10}, attn/.style={b, fill=purple!8},
+  rec/.style={b, fill=green!8}]
+% DeepLOB
+\node[io] (d0) {Input\\$(B,100,40)$};
+\node[conv, right=of d0] (d1) {Conv2d\\$1{\times}2,s2$};
+\node[conv, right=of d1] (d2) {$2{\times}$Conv2d\\$4{\times}1$};
+\node[conv, right=of d2] (d3) {Inception};
+\node[rec, right=of d3] (d4) {LSTM\\$h{=}64$};
+\node[io, right=of d4] (d5) {FC\\$\to 3$};
+\foreach \a/\b in {d0/d1,d1/d2,d2/d3,d3/d4,d4/d5} \draw[->] (\a)--(\b);
+\node[left=1mm of d0, font=\bfseries] {DeepLOB};
+% MLPLOB
+\node[io, below=9mm of d0] (m0) {Input\\$(B,100,40)$};
+\node[b, right=of m0] (m1) {Flatten};
+\node[b, right=of m1] (m2) {Linear 128\\+ GELU};
+\node[b, right=of m2] (m3) {Linear 128\\+ GELU};
+\node[b, right=of m3] (m4) {BiN};
+\node[io, right=of m4] (m5) {FC\\$\to 3$};
+\foreach \a/\b in {m0/m1,m1/m2,m2/m3,m3/m4,m4/m5} \draw[->] (\a)--(\b);
+\node[left=1mm of m0, font=\bfseries] {MLPLOB};
+% TLOB
+\node[io, below=9mm of m0] (t0) {Input\\$(B,100,40)$};
+\node[b, right=of t0] (t1) {Linear proj\\+ pos.\ emb};
+\node[attn, right=of t1] (t2) {$4{\times}$\,[Temporal\\Attn]};
+\node[attn, right=of t2] (t3) {$4{\times}$\,[Feature\\Attn]};
+\node[b, right=of t3] (t4) {MLP\\head};
+\node[io, right=of t4] (t5) {FC\\$\to 3$};
+\foreach \a/\b in {t0/t1,t1/t2,t2/t3,t3/t4,t4/t5} \draw[->] (\a)--(\b);
+\node[left=1mm of t0, font=\bfseries] {TLOB};
+\end{tikzpicture}}
+\caption{Reproduced baseline architectures. DeepLOB (CNN\,+\,Inception\,+\,LSTM), MLPLOB (flatten\,+\,MLP with
+Bilinear Normalization, the ablation floor), and TLOB (alternating temporal and feature self-attention,
+the transformer SOTA). All share the $(B,100,40)\!\to\!3$ contract.}
+\label{fig:baselines}
+\end{figure}
 
 \subsubsection{Bilinear Normalization and Attention}
 Bilinear Normalization (BiN) normalises across both the temporal and feature axes and learns to weight the
@@ -357,7 +388,40 @@ is quadratic in $L$.
 A Mamba block realises a discretised, input-dependent linear recurrence
 $h_t = \bar{A}_t h_{t-1} + \bar{B}_t x_t,\ y_t = C_t h_t$, where the selection mechanism makes
 $\bar A,\bar B,C$ depend on the input. This yields $O(L)$ time and memory and a parameter count independent
-of $L$ --- the basis of our efficiency claim.
+of $L$ --- the basis of our efficiency claim. Figure~\ref{fig:mambablock} details the block internals.
+
+\begin{figure}[h]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\footnotesize, >={Stealth[round]}, node distance=5mm,
+  b/.style={draw, rounded corners=2pt, align=center, minimum height=8mm, minimum width=15mm, fill=green!8},
+  op/.style={draw, circle, inner sep=1pt, fill=yellow!20},
+  io/.style={b, fill=gray!10}]
+\node[io] (x) {$x$\\$(B,L,d)$};
+\node[b, right=of x] (norm) {Layer\\Norm};
+\node[b, right=of norm] (inproj) {in\_proj\\$d\!\to\!2d_i$};
+\node[b, above right=2mm and 7mm of inproj] (conv) {Conv1d\\(depthwise)};
+\node[b, right=of conv] (silu) {SiLU};
+\node[b, right=of silu] (scan) {selective scan\\$\bar A,\bar B,C$ (input-dep.)};
+\node[op, right=8mm of scan] (gate) {$\odot$};
+\node[b, below=8mm of gate] (z) {SiLU$(z)$};
+\node[b, right=of gate] (outproj) {out\_proj\\$d_i\!\to\!d$};
+\node[op, right=6mm of outproj] (add) {$+$};
+\node[io, right=5mm of add] (y) {$y$};
+\draw[->] (x)--(norm); \draw[->] (norm)--(inproj);
+\draw[->] (inproj.east) -- ++(3mm,0) |- (conv.west) node[midway,above,font=\scriptsize]{};
+\draw[->] (inproj.east) -- ++(3mm,0) |- (z.west) node[midway,below,font=\scriptsize]{$z$};
+\draw[->] (conv)--(silu); \draw[->] (silu)--(scan); \draw[->] (scan)--(gate);
+\draw[->] (z)--(gate); \draw[->] (gate)--(outproj); \draw[->] (outproj)--(add); \draw[->] (add)--(y);
+\draw[->] (x.south) |- ++(0,-13mm) -| (add.south) node[near start,below,font=\scriptsize]{residual};
+\end{tikzpicture}}
+\caption{Selective state-space (Mamba) block. The input is normalised and projected to two streams; one
+passes a depthwise causal convolution and SiLU into the selective scan (with input-dependent
+$\bar A,\bar B,C$), the other forms the SiLU gate. The gated output is projected back and added to the
+residual. The scan is the only sequential step and runs in $O(L)$.}
+\label{fig:mambablock}
+\end{figure}
 
 \subsection{Classification Algorithm}
 The head produces $\hat{y} = \mathrm{Softmax}(Wx+b)$ over the three classes. Optimization uses
@@ -683,8 +747,52 @@ competitive --- beating the CNN baseline (DeepLOB) on NIFTY --- at a fraction of
 We tested two architectural improvements to the vanilla SSM stack --- \emph{bidirectional} Mamba (a forward
 and a time-reversed scan, averaged) and \emph{ConvMambaLOB} (DeepLOB's Conv+Inception spatial front-end
 feeding a Mamba temporal core, replacing DeepLOB's sequential LSTM) --- plus their combination, all trained
-on the best (\texttt{all}) feature set against the TLOB transformer. Table~\ref{tab:tierb} reports the mean
-over both instruments and $k\in\{10,100\}$.
+on the best (\texttt{all}) feature set against the TLOB transformer. Figure~\ref{fig:tierbvariants} contrasts
+the four variants; Table~\ref{tab:tierb} reports the mean over both instruments and $k\in\{10,100\}$.
+
+\begin{figure}[h]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\footnotesize, >={Stealth[round]}, node distance=3.5mm,
+  b/.style={draw, rounded corners=2pt, align=center, minimum height=7mm, minimum width=14mm, fill=blue!5},
+  m/.style={b, fill=green!8}, bi/.style={b, fill=green!18}, c/.style={b, fill=orange!10},
+  io/.style={b, fill=gray!10}]
+% (a) base
+\node[io] (a0) {Input};
+\node[b, right=of a0] (a1) {Linear};
+\node[m, right=of a1] (a2) {Mamba\\$\times n$};
+\node[b, right=of a2] (a3) {BiN\\+FC};
+\foreach \x/\y in {a0/a1,a1/a2,a2/a3} \draw[->] (\x)--(\y);
+\node[above=1mm of a1, font=\bfseries\scriptsize] {(a) MambaLOB};
+% (b) bidirectional
+\node[io, below=8mm of a0] (b0) {Input};
+\node[b, right=of b0] (b1) {Linear};
+\node[bi, right=of b1] (b2) {BiMamba\\$\times n$};
+\node[b, right=of b2] (b3) {BiN\\+FC};
+\foreach \x/\y in {b0/b1,b1/b2,b2/b3} \draw[->] (\x)--(\y);
+\node[above=1mm of b1, font=\bfseries\scriptsize] {(b) +\,bidirectional};
+\node[below=0.5mm of b2, font=\scriptsize, text width=24mm, align=center] {fwd + reversed\\scan, averaged};
+% (c) conv
+\node[io, below=14mm of b0] (c0) {Input};
+\node[c, right=of c0] (c1) {Conv +\\Inception};
+\node[m, right=of c1] (c2) {Mamba\\$\times n$};
+\node[b, right=of c2] (c3) {BiN\\+FC};
+\foreach \x/\y in {c0/c1,c1/c2,c2/c3} \draw[->] (\x)--(\y);
+\node[above=1mm of c1, font=\bfseries\scriptsize] {(c) ConvMambaLOB};
+% (d) both
+\node[io, below=8mm of c0] (e0) {Input};
+\node[c, right=of e0] (e1) {Conv +\\Inception};
+\node[bi, right=of e1] (e2) {BiMamba\\$\times n$};
+\node[b, right=of e2] (e3) {BiN\\+FC};
+\foreach \x/\y in {e0/e1,e1/e2,e2/e3} \draw[->] (\x)--(\y);
+\node[above=1mm of e1, font=\bfseries\scriptsize] {(d) +\,both};
+\end{tikzpicture}}
+\caption{The four Tier-B variants. (a) base MambaLOB; (b) bidirectional Mamba (forward + time-reversed scan,
+averaged); (c) ConvMambaLOB (spatial conv front-end $\to$ Mamba core); (d) both combined. All share the
+Bilinear-Normalization head. Variant (c) was the best of the four; (d) the weakest (Table~\ref{tab:tierb}).}
+\label{fig:tierbvariants}
+\end{figure}
 \begin{table}[h]
 \centering
 \caption{Tier-B architectures (NIFTY+BANKNIFTY, mean over $k\in\{10,100\}$, \texttt{all} features, single seed).}
