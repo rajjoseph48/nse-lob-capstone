@@ -122,8 +122,8 @@ The survey covers classical statistical approaches (ARIMA), Hidden Markov Models
 (CNN, LSTM, CNN--LSTM hybrids), the transformer-based TLOB/MLPLOB family, state-space models for sequences
 (S4/S5/Mamba), and continuous-time microstructure models. Selection criteria: use of high-frequency LOB
 data, explicit modelling of LOB structure, empirical validation, and architectural novelty. Primary
-references include the DeepLOB family, the TLOB paper, FI-2010 (Ntakaris et al.), the LOBCAST benchmark
-study (Prata et al.), the Mamba paper (Gu \& Dao), and continuous-time LOB modelling work.
+references include the DeepLOB family~\cite{deeplob}, the TLOB paper~\cite{tlob}, FI-2010 (Ntakaris et al.~\cite{fi2010}), the LOBCAST benchmark
+study (Prata et al.)~\cite{lobcast}, the Mamba paper (Gu \& Dao)~\cite{mamba}, and continuous-time LOB modelling work.
 
 \subsection{Survey of Existing Approaches}
 \subsubsection{Early Solutions and Classical Techniques}
@@ -133,15 +133,15 @@ and hybrid HMM/ARIMA models improve regime modelling but depend on historical pr
 depth, and are sensitive to regime misclassification.
 
 \subsubsection{Modern Approaches and Evolving Trends}
-\textbf{DeepLOB} (Zhang et al., 2019) combines convolutional feature extraction across LOB levels with an
+\textbf{DeepLOB} (Zhang et al., 2019)~\cite{deeplob} combines convolutional feature extraction across LOB levels with an
 LSTM over time, substantially improving mid-price movement prediction on FI-2010. It established the
 40-feature $\times$ window representation that we adopt. It nonetheless operates on event-resolution
 snapshots without attention.
 
 \subsubsection{Emerging Models and Hybrid Frameworks}
-\textbf{MLPLOB} and \textbf{TLOB} (Berti \& Kasneci, 2025) reframe the model as alternating normalization and
+\textbf{MLPLOB} and \textbf{TLOB} (Berti \& Kasneci, 2025)~\cite{tlob} reframe the model as alternating normalization and
 mixing blocks; TLOB uses \emph{dual} (temporal and feature) self-attention and is the current
-state-of-the-art on FI-2010. \textbf{State-space models} (S4, S5, Mamba) offer linear-time sequence
+state-of-the-art on FI-2010. \textbf{State-space models} (S4~\cite{s4}, S5, Mamba~\cite{mamba}) offer linear-time sequence
 modelling and have entered LOB research on the generative side; their use as a classification backbone for
 LOB direction is the novelty window this project targets.
 
@@ -251,9 +251,9 @@ The bid--ask spread $S(t) = P_1^a(t) - P_1^b(t)$ measures liquidity (and, import
 cost), while per-level depth encodes short-term price pressure.
 
 Two microstructure quantities are central to the feature engineering in Section~3.3. \emph{Order-flow
-imbalance} (OFI; Cont et al.) summarises the net change in bid- versus ask-side liquidity between consecutive
+imbalance} (OFI; Cont et al.~\cite{ofi}) summarises the net change in bid- versus ask-side liquidity between consecutive
 states and is one of the most robust documented predictors of short-horizon price moves. The \emph{micro-price}
-$p_{\mathrm{micro}} = \frac{V_1^b P_1^a + V_1^a P_1^b}{V_1^a + V_1^b}$ (Stoikov) is a volume-weighted mid that
+$p_{\mathrm{micro}} = \frac{V_1^b P_1^a + V_1^a P_1^b}{V_1^a + V_1^b}$ (Stoikov~\cite{microprice}) is a volume-weighted mid that
 leans toward the side with less depth and is often a better instantaneous fair-value estimate than the plain
 mid. \emph{Depth imbalance}, $\frac{V_1^b - V_1^a}{V_1^b + V_1^a}$, captures the same pressure as a normalised
 scalar. These priors --- rather than raw prices alone --- are what the Tier-A features make explicit to the
@@ -850,8 +850,8 @@ parameters.}
 \end{figure}
 
 \textbf{TLOB leads across both instruments and all horizons} (lift $\approx$0.25--0.30), mirroring its
-FI-2010 ranking. \textbf{Key transfer finding for the proposed model:} on NIFTY, \emph{MambaLOB (68k
-parameters) outperforms DeepLOB (191k) and matches MLPLOB, second only to TLOB} --- whereas on FI-2010
+FI-2010 ranking. The key transfer finding concerns the proposed model: on NIFTY, MambaLOB (68k
+parameters) outperforms DeepLOB (191k) and matches MLPLOB, second only to TLOB, whereas on FI-2010
 MambaLOB trailed DeepLOB. In other words, on the target Indian market the selective-SSM transfers
 \emph{better} than on the benchmark, delivering competitive accuracy at roughly $1/27$ of TLOB's
 parameters. On BANKNIFTY MambaLOB is on par with DeepLOB (both $\approx$0.46--0.48), below TLOB. Macro $F_1$
@@ -942,7 +942,7 @@ count). The Mamba family clusters at the low-parameter end near TLOB's accuracy;
 the proposed variants. The lower-right region (better-and-smaller) is the design target.}
 \label{fig:archscatter}
 \end{figure}
-\textbf{The result is an efficiency trade-off, not an accuracy win.} TLOB still leads weighted \emph{and}
+The result is an efficiency trade-off rather than an accuracy win: TLOB still leads weighted \emph{and}
 macro $F_1$ in every (instrument, horizon) cell; our variants win none, trailing by $\approx$0.06--0.08 wF1.
 The contribution is the trade-off: \textbf{ConvMambaLOB recovers $\sim$90\% of the transformer's quality with
 $12.5\times$ fewer parameters}. Among our own designs the hybrid \emph{spatial-convolution} front-end is the
@@ -971,20 +971,23 @@ Mamba / ConvMamba vs TLOB & $-0.07$ ($p{<}0.001$) & $-0.087$ (CI excl.\ 0) & TLO
 \end{tabular}
 \end{table}
 
-\noindent\textbf{(1) Microstructure feature engineering is significant} by every test --- the effect is large
-(across-seed $+0.084$ weighted-$F_1$, 11/12 cells) and especially dramatic on BANKNIFTY, where the raw
-\texttt{base40} input collapses to $\approx$0.45 while the engineered \texttt{all} set reaches $\approx$0.61.
-This is the strongest data-science result: the engineered features are what make the NSE signal learnable.
-\textbf{(2) The ConvMambaLOB gain is real in direction but not robust} --- it wins 8/12 cells and is positive
-per-sample, but across seeds the $+0.005$ average lies within seed noise ($p{=}0.25$). The per-sample test
-flags it ``significant'' only because $n{=}341{,}214$ makes any tiny difference significant; we therefore
-report it honestly as a small, consistent-but-not-significant improvement. \textbf{(3) TLOB's accuracy lead is
-statistically robust} ($p{<}0.001$, 0/12 cells), confirming the contribution is the efficiency trade-off
-(competitive accuracy at $12$--$25\times$ fewer parameters), not parity. \textbf{Calibration:} the proposed
-model is already well-calibrated (test ECE $=0.041$; the NLL-optimal temperature is $T{=}1.00$, i.e.\ no
-scaling needed), so its predicted probabilities can be used directly in the cost-aware backtest. The
-methodological lesson --- per-sample tests over-detect at large $n$, so the across-seed paired test is the
-meaningful measure of a \emph{generalizable} improvement --- is itself a reportable finding.
+The microstructure feature engineering is significant by every test. The effect is large (an across-seed gain
+of $+0.084$ weighted-$F_1$, winning 11 of 12 cells) and is especially pronounced on BANKNIFTY, where the raw
+\texttt{base40} input collapses to roughly 0.45 while the engineered \texttt{all} set reaches about 0.61. This
+is the strongest data-science result of the study: the engineered features are what make the NSE signal
+learnable.
+
+The ConvMambaLOB gain, by contrast, is real in direction but not statistically robust. It wins 8 of 12 cells
+and is positive in the per-sample test, yet across seeds the $+0.005$ average lies within seed-to-seed noise
+($p=0.25$). The per-sample test flags it as significant only because the large sample ($n=341{,}214$) renders
+any tiny difference significant; we therefore report it as a small, consistent-in-direction but
+not-significant improvement. TLOB's accuracy lead, on the other hand, is statistically robust ($p<0.001$,
+winning all 12 cells), which confirms that the contribution of the proposed models is the efficiency
+trade-off (competitive accuracy at $12$--$25\times$ fewer parameters) rather than parity. On calibration, the
+proposed model is already well-calibrated (test ECE $0.041$; the NLL-optimal temperature is $T=1.00$, so no
+scaling is needed), so its predicted probabilities can be used directly in the cost-aware backtest. A
+methodological point worth recording is that per-sample tests over-detect at large $n$, so the across-seed
+paired test is the more meaningful measure of a generalizable improvement.
 
 \subsection{Originality and Innovation in Approach}
 \subsubsection{Creative Framing of the Problem}
@@ -1061,7 +1064,7 @@ $L$ & TLOB params & TLOB mem / latency & Mamba params & Mamba mem / latency \\
 widens sharply with $L$, the basis of the architecture's efficiency claim.}
 \label{fig:scaling}
 \end{figure}
-\textbf{Headline efficiency result.} MambaLOB's parameter count is constant in $L$ and its
+MambaLOB's parameter count is constant in $L$ and its
 memory/latency grow \emph{linearly}, while TLOB grows \emph{quadratically}. At $L{=}800$ MambaLOB is
 $\approx$31$\times$ faster, uses $\approx$3.4$\times$ less memory, and has $\approx$750$\times$ fewer
 parameters --- a clean demonstration of the linear-scaling advantage that motivates the architecture.
@@ -1129,6 +1132,27 @@ backtest, a walk-forward robustness check, and consolidation into the final repo
 feature ablation, Tier-B architectures, Tier-C multi-seed); confusion-matrix and scaling figures appear inline
 in Chapter~3. Reproducibility artefacts (\texttt{requirements}, seeds, and S3 paths) accompany the code
 repository.
+
+\begin{thebibliography}{9}
+\small
+\bibitem{deeplob} Z.~Zhang, S.~Zohren, and S.~Roberts. ``DeepLOB: Deep Convolutional Neural Networks for
+Limit Order Books.'' \emph{IEEE Transactions on Signal Processing}, 67(11):3001--3012, 2019.
+\bibitem{tlob} L.~Berti and G.~Kasneci. ``TLOB: A Novel Transformer Model with Dual Attention for Price Trend
+Prediction with Limit Order Book Data.'' \emph{arXiv preprint}, 2025.
+\bibitem{fi2010} A.~Ntakaris, M.~Magris, J.~Kanniainen, M.~Gabbouj, and A.~Iosifidis. ``Benchmark dataset for
+mid-price forecasting of limit order book data with machine learning methods.'' \emph{Journal of
+Forecasting}, 37(8):852--866, 2018.
+\bibitem{lobcast} A.~Prata et al. ``LOB-Based Deep Learning Models for Stock Price Trend Prediction: A
+Benchmark Study.'' \emph{arXiv preprint} arXiv:2308.01915, 2023.
+\bibitem{mamba} A.~Gu and T.~Dao. ``Mamba: Linear-Time Sequence Modeling with Selective State Spaces.''
+\emph{arXiv preprint} arXiv:2312.00752, 2023.
+\bibitem{s4} A.~Gu, K.~Goel, and C.~R\'e. ``Efficiently Modeling Long Sequences with Structured State
+Spaces.'' \emph{International Conference on Learning Representations (ICLR)}, 2022.
+\bibitem{ofi} R.~Cont, A.~Kukanov, and S.~Stoikov. ``The Price Impact of Order Book Events.''
+\emph{Journal of Financial Econometrics}, 12(1):47--88, 2014.
+\bibitem{microprice} S.~Stoikov. ``The micro-price: a high-frequency estimator of future prices.''
+\emph{Quantitative Finance}, 18(12):1959--1966, 2018.
+\end{thebibliography}
 
 \input{appendix_tables}
 
