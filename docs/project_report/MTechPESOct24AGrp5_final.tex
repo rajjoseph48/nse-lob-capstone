@@ -75,14 +75,13 @@ Research on deep LOB models is concentrated on developed markets (NASDAQ, Nordic
 futures are highly liquid yet structurally distinct (tick discreteness, regime shifts, distinct liquidity
 profiles), and remain almost entirely unstudied with modern LOB architectures. Index direction is hard to
 predict because the series is non-stationary, exhibits stochastic volatility, and is governed by rapidly
-evolving supply--demand dynamics. The underlying LOB evolves in \emph{event time} rather than clock time ---
-it updates whenever a limit order is placed, executed, cancelled, or a level is modified --- and prior deep
-LOB models typically train on coarse fixed-grid snapshots (e.g.\ one-second sampling), which lose
-intra-interval dynamics. We capture NSE depth at the broker's native push cadence ($\approx$2.5\,Hz, a
-$\approx$0.4\,s median inter-update gap; Section~3.2), substantially finer-grained than the one-second
-snapshots common in prior work. We are transparent that this stored stream is a near-regular
-snapshot feed rather than true tick-by-tick event data (a limitation analysed in Section~3.2), so the study's
-principal gap is \emph{geographic}: Indian index futures are highly liquid yet almost entirely unstudied with
+evolving supply--demand dynamics. The order book updates irregularly and at high frequency as limit orders
+are placed, executed, or cancelled, yet most prior deep LOB models train on coarse fixed-grid snapshots
+(e.g.\ one-second sampling) that lose intra-interval dynamics. We capture NSE depth at the broker's native
+push cadence ($\approx$2.5\,Hz, a $\approx$0.4\,s median inter-update gap; Section~3.2), finer-grained than
+the one-second snapshots common in prior work, while noting transparently that it remains a near-regular
+snapshot feed rather than tick-by-tick data (a limitation analysed in Section~3.2). The study's principal gap
+is therefore \emph{geographic}: Indian index futures are highly liquid yet almost entirely unstudied with
 modern LOB architectures.
 
 \subsection{Problem Definition and Scope}
