@@ -526,7 +526,7 @@ Feature set & $\Delta$ (k=10) & $\Delta$ (k=100) & Verdict \\
 \end{table}
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.72\linewidth]{feature_ablation_fig_feature_ablation.png}
+\includegraphics[width=0.85\linewidth]{feature_ablation_fig_feature_ablation.png}
 \caption{MambaLOB (NIFTY) weighted-$F_1$ by feature set and horizon. The engineered \texttt{micro} and
 \texttt{all} sets sit above raw \texttt{base40}, with the gain widening at the longer horizon; deep levels
 (\texttt{depth80}) and order counts alone (\texttt{orders60}) do not help in isolation.}
@@ -613,15 +613,15 @@ scaling curve (Section~3.10). Figure~\ref{fig:fi2010f1} shows the FI-2010 macro-
 Figure~\ref{fig:fi2010cm} the DeepLOB confusion matrices at the shortest and longest horizons.
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.66\linewidth]{fi2010_fig_macrof1_by_horizon.png}
+\includegraphics[width=0.85\linewidth]{fi2010_fig_macrof1_by_horizon.png}
 \caption{FI-2010 reproduction: macro-$F_1$ by prediction horizon for the reproduced baselines. The ordering
 and absolute range match the published DeepLOB/TLOB results and the independent LOBCAST reproduction.}
 \label{fig:fi2010f1}
 \end{figure}
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.42\linewidth]{fi2010_cm_deeplob_h10.png}\hfill
-\includegraphics[width=0.42\linewidth]{fi2010_cm_deeplob_h100.png}
+\includegraphics[width=0.48\linewidth]{fi2010_cm_deeplob_h10.png}\hfill
+\includegraphics[width=0.48\linewidth]{fi2010_cm_deeplob_h100.png}
 \caption{DeepLOB confusion matrices on FI-2010 at $k{=}10$ (left) and $k{=}100$ (right). At the longer horizon
 the Stationary class shrinks and predictions concentrate on the directional classes.}
 \label{fig:fi2010cm}
@@ -652,7 +652,7 @@ MambaLOB & 0.52--0.59 & 0.45--0.48 & 0.02--0.17 \\
 \end{table}
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.66\linewidth]{nse_fig_nse_wf1_by_horizon.png}
+\includegraphics[width=0.85\linewidth]{nse_fig_nse_wf1_by_horizon.png}
 \caption{NSE transfer (Scheme~A): test weighted-$F_1$ by horizon for each model. TLOB leads throughout;
 MambaLOB transfers competitively, matching or beating the CNN baseline on NIFTY at a fraction of the
 parameters.}
@@ -703,7 +703,7 @@ TLOB (SOTA)           & 1.80M & \textbf{0.666} & \textbf{0.570} & 100\% \\
 \end{table}
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.66\linewidth]{architecture_fig_architecture.png}
+\includegraphics[width=0.85\linewidth]{architecture_fig_architecture.png}
 \caption{Quality vs.\ model size for the Tier-B architectures (average weighted-$F_1$ against parameter
 count). The Mamba family clusters at the low-parameter end near TLOB's accuracy; ConvMambaLOB is the best of
 the proposed variants. The lower-right region (better-and-smaller) is the design target.}
@@ -823,7 +823,7 @@ $L$ & TLOB params & TLOB mem / latency & Mamba params & Mamba mem / latency \\
 \end{table}
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.66\linewidth]{mamba_fig_scaling_tlob_vs_mamba.png}
+\includegraphics[width=0.85\linewidth]{mamba_fig_scaling_tlob_vs_mamba.png}
 \caption{Sequence-length scaling: TLOB's $O(L^2)$ attention versus MambaLOB's $O(L)$ selective scan. The gap
 widens sharply with $L$, the basis of the architecture's efficiency claim.}
 \label{fig:scaling}
