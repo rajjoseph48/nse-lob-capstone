@@ -129,23 +129,61 @@ study (Prata et al.)~\cite{lobcast}, the Mamba paper (Gu \& Dao)~\cite{mamba}, a
 
 \subsection{Survey of Existing Approaches}
 \subsubsection{Early Solutions and Classical Techniques}
-Parametric statistical models (AR, MA, ARMA, ARIMA) assume specific data-generating processes and perform
-adequately on linear dynamics but fail under the non-linear, non-stationary behaviour of LOB data. Enhanced
-and hybrid HMM/ARIMA models improve regime modelling but depend on historical price series, do not use LOB
-depth, and are sensitive to regime misclassification.
+Parametric time-series models (AR, MA, ARMA, ARIMA) were the first tools applied to price forecasting. They
+assume a specific linear data-generating process and perform adequately on smooth, stationary series, but
+they fail under the non-linear, heavy-tailed, and non-stationary behaviour of high-frequency LOB data, and
+they ignore book depth entirely, modelling only the price series. Hidden Markov Models and hybrid HMM/ARIMA
+variants add discrete regime structure (e.g.\ trending vs.\ mean-reverting states) and improve over plain
+ARIMA, but they still operate on derived price/return series rather than the order book, and their
+performance is sensitive to regime misclassification. These methods form the conceptual baseline against
+which deep LOB models are judged; none exploit the multi-level bid/ask structure that carries the
+short-horizon signal.
 
 \subsubsection{Modern Approaches and Evolving Trends}
-\textbf{DeepLOB} (Zhang et al., 2019)~\cite{deeplob} combines convolutional feature extraction across LOB levels with an
-LSTM over time, substantially improving mid-price movement prediction on FI-2010. It established the
-40-feature $\times$ window representation that we adopt. It nonetheless operates on event-resolution
-snapshots without attention.
+\noindent\textbf{The FI-2010 benchmark (Ntakaris et al., 2018)~\cite{fi2010}.} FI-2010 is the first public
+benchmark dataset for LOB mid-price forecasting: ten levels of depth for five Nasdaq Nordic (Helsinki) stocks
+over ten trading days ($\approx$4\,million events). It standardised the field by providing pre-normalised
+feature variants (z-score, min-max, decimal precision), a smoothed mid-price percentage-change labelling rule
+at horizons $k\in\{10,20,30,50,100\}$, and anchored cross-validation folds. Almost every subsequent deep LOB
+model --- including ours --- reports on FI-2010, which is why we use it to validate our reproductions before
+moving to NSE.
+
+\noindent\textbf{DeepLOB (Zhang, Zohren \& Roberts, 2019)~\cite{deeplob}.} The seminal deep LOB model. It
+applies a convolutional stack that first fuses price and volume, then the two book sides, then aggregates
+across levels; an Inception module captures multi-scale temporal patterns; and an LSTM models the resulting
+sequence before a three-class softmax. On FI-2010 it substantially outperformed earlier shallow methods and
+generalised to London Stock Exchange stocks. Crucially for this work, it established the interleaved
+40-feature $\times$ time-window input representation that all subsequent models (and ours) adopt. Its
+limitation is the sequential LSTM bottleneck and the absence of attention, which later transformer and
+state-space models address.
 
 \subsubsection{Emerging Models and Hybrid Frameworks}
-\textbf{MLPLOB} and \textbf{TLOB} (Berti \& Kasneci, 2025)~\cite{tlob} reframe the model as alternating normalization and
-mixing blocks; TLOB uses \emph{dual} (temporal and feature) self-attention and is the current
-state-of-the-art on FI-2010. \textbf{State-space models} (S4~\cite{s4}, S5, Mamba~\cite{mamba}) offer linear-time sequence
-modelling and have entered LOB research on the generative side; their use as a classification backbone for
-LOB direction is the novelty window this project targets.
+\noindent\textbf{MLPLOB and TLOB (Berti \& Kasneci, 2025)~\cite{tlob}.} This pair reframes LOB prediction as
+a stack of normalization-plus-mixing blocks. MLPLOB uses pure MLP mixing with Bilinear Normalization (BiN)
+and is a deliberately simple but strong baseline. TLOB adds \emph{dual} self-attention --- alternating a
+\emph{temporal} attention (mixing across time steps) with a \emph{feature} attention (mixing across LOB
+features) --- and is the current state of the art on FI-2010, with gains concentrated at longer horizons and
+in volatile conditions. We reproduce both: MLPLOB as the ablation floor (how much does sequence modelling
+add?) and TLOB as the SOTA reference, vendored faithfully from the authors' implementation.
+
+\noindent\textbf{State-space models: S4 and Mamba (Gu et al., 2022~\cite{s4}; Gu \& Dao, 2023~\cite{mamba}).}
+Structured state-space models (S4) parameterise a linear recurrence with a principled long-range
+initialisation, achieving sub-quadratic sequence modelling competitive with transformers on long-context
+tasks. Mamba makes the state-space parameters \emph{input-dependent} (a selection mechanism) and adds a
+hardware-aware parallel scan, giving genuinely linear-time, $O(L)$ modelling with a parameter count
+independent of sequence length. SSMs have appeared in LOB research mostly on the generative side; their use
+as a discriminative \emph{classification backbone} for LOB direction is the specific gap this project
+targets with MambaLOB.
+
+\noindent\textbf{Benchmark studies and microstructure priors.} The LOBCAST benchmark study
+(Prata et al., 2024)~\cite{lobcast} re-implemented fifteen state-of-the-art deep LOB models in a unified
+framework and found that they overfit FI-2010 and degrade sharply on unseen stocks --- a cautionary result
+that directly motivates our honest transfer framing and our side-by-side reporting of weighted and macro
+$F_1$. Independently of architecture, the market-microstructure literature supplies strong hand-crafted
+signals: Cont, Kukanov \& Stoikov (2014)~\cite{ofi} show that order-flow imbalance is a robust linear
+predictor of short-horizon price moves, and Stoikov (2018)~\cite{microprice} introduces the micro-price, a
+volume-weighted fair-value estimator superior to the plain mid. These priors underpin the engineered features
+evaluated in Section~3.3.
 
 \subsection{Comparative Evaluation of Techniques}
 \begin{table}[h]
