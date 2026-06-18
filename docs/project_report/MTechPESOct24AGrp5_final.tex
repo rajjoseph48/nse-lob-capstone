@@ -3,6 +3,9 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
 \usepackage{enumitem}
 \usepackage{fancyhdr}
 \usepackage{caption}
@@ -268,7 +271,42 @@ and a linear classifier:
 X \xrightarrow{\text{Linear}} \text{Mamba}\times n \xrightarrow{(\text{opt.\ feature attn})}
 \text{BiN} \xrightarrow{\text{FC}} \text{logits}\in\mathbb{R}^{3}.
 \]
-On GPU it uses the CUDA \texttt{mamba-ssm} kernel; a pure-PyTorch fallback exists for CPU/debug.
+On GPU it uses the CUDA \texttt{mamba-ssm} kernel; a pure-PyTorch fallback exists for CPU/debug. The
+\emph{ConvMambaLOB} variant (introduced in Phase~2) replaces the linear input projection with DeepLOB's
+convolutional spatial front-end, feeding a Mamba temporal core (Figure~\ref{fig:arch}).
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw, rounded corners=2pt, minimum height=7mm, minimum width=20mm, align=center, fill=blue!5},
+  mamba/.style={box, fill=green!8},
+  io/.style={box, fill=gray!8},
+  >={Stealth[round]}, node distance=4.2mm]
+% MambaLOB row
+\node[io] (in1) {Input\\$(B,100,F)$};
+\node[box, right=of in1] (proj1) {Linear\\$F\!\to\!d$};
+\node[mamba, right=of proj1] (m1) {Mamba\\$\times n$};
+\node[box, right=of m1] (bn1) {BiN};
+\node[io, right=of bn1] (fc1) {FC\\$\to\!3$};
+\draw[->] (in1)--(proj1); \draw[->] (proj1)--(m1); \draw[->] (m1)--(bn1); \draw[->] (bn1)--(fc1);
+\node[left=1mm of in1, rotate=90, anchor=south, font=\scriptsize\bfseries] {MambaLOB};
+% ConvMambaLOB row
+\node[io, below=10mm of in1] (in2) {Input\\$(B,100,F)$};
+\node[box, right=of in2, fill=orange!10] (conv2) {Conv +\\Inception};
+\node[box, right=of conv2] (proj2) {Linear\\$\to\!d$};
+\node[mamba, right=of proj2] (m2) {Mamba\\$\times n$};
+\node[box, right=of m2] (bn2) {BiN};
+\node[io, right=of bn2] (fc2) {FC\\$\to\!3$};
+\draw[->] (in2)--(conv2); \draw[->] (conv2)--(proj2); \draw[->] (proj2)--(m2); \draw[->] (m2)--(bn2); \draw[->] (bn2)--(fc2);
+\node[left=1mm of in2, rotate=90, anchor=south, font=\scriptsize\bfseries] {ConvMambaLOB};
+\end{tikzpicture}
+\caption{Proposed architectures. MambaLOB (top) projects the LOB vector and applies $n$ selective
+state-space blocks ($O(L)$ temporal mixing) before Bilinear Normalization and a 3-class head. ConvMambaLOB
+(bottom) prepends DeepLOB's Conv\,+\,Inception spatial extractor, replacing DeepLOB's sequential LSTM with the
+Mamba core. Bidirectional and combined variants were also evaluated (Section~3.6).}
+\label{fig:arch}
+\end{figure}
 
 \subsubsection{Training and Evaluation}
 Supervised three-class classification; class-weighted cross-entropy; AdamW with cosine decay; early
@@ -421,7 +459,34 @@ The pipeline that aligns Dhan to the FI-2010 contract (implemented in \texttt{mo
         full series.
 \end{enumerate}
 Default split (chronological): train 12 May -- 4 June (15 days), validation = last 10\% of training
-windows, test 5/8/9/10/11/12 June (6 most-recent out-of-sample days).
+windows, test 5/8/9/10/11/12 June (6 most-recent out-of-sample days). Figure~\ref{fig:pipeline} shows the
+end-to-end data-engineering flow from the live broker feed to model-ready tensors.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize, >={Stealth[round]}, node distance=6mm,
+  stage/.style={draw, rounded corners=2pt, align=center, minimum height=9mm, minimum width=23mm},
+  acq/.style={stage, fill=orange!10}, store/.style={stage, fill=blue!8},
+  prep/.style={stage, fill=green!8}, result/.style={stage, fill=gray!10}]
+\node[acq] (dhan) {Dhan WebSocket\\binary depth feed};
+\node[acq, right=of dhan] (ec2) {EC2 collector\\(parse 1992/664\,B)};
+\node[store, right=of ec2] (s3) {S3 daily\\Parquet};
+\node[prep, below=8mm of s3] (stitch) {Front-month\\stitch + clean};
+\node[prep, left=of stitch] (seg) {Per-day segment\\+ z-score (train)};
+\node[prep, left=of seg] (lab) {Label + lazy\\windows};
+\node[result, left=of lab] (ds) {Train / Val / Test\\tensors};
+\draw[->] (dhan)--(ec2); \draw[->] (ec2)--(s3); \draw[->] (s3)--(stitch);
+\draw[->] (stitch)--(seg); \draw[->] (seg)--(lab); \draw[->] (lab)--(ds);
+\node[font=\scriptsize, above=0.5mm of ec2] {cron 09:10 IST};
+\node[font=\scriptsize, below=0.5mm of s3] {region ap-south-2};
+\end{tikzpicture}
+\caption{Engineered NSE data pipeline. The reverse-engineered Dhan binary feed (two frame formats, 1992\,B
+full / 664\,B compact) is parsed on an EC2 collector and written as daily Parquet to S3; the modelling layer
+then stitches the front-month series across the expiry roll, cleans, segments per trading day, z-scores using
+training statistics only, labels, and emits lazily-windowed tensors aligned to the FI-2010 layout.}
+\label{fig:pipeline}
+\end{figure}
 
 \subsection{Feature Engineering}
 \subsubsection{Feature Identification Techniques}
@@ -459,6 +524,14 @@ Feature set & $\Delta$ (k=10) & $\Delta$ (k=100) & Verdict \\
 \bottomrule
 \end{tabular}
 \end{table}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.72\linewidth]{feature_ablation_fig_feature_ablation.png}
+\caption{MambaLOB (NIFTY) weighted-$F_1$ by feature set and horizon. The engineered \texttt{micro} and
+\texttt{all} sets sit above raw \texttt{base40}, with the gain widening at the longer horizon; deep levels
+(\texttt{depth80}) and order counts alone (\texttt{orders60}) do not help in isolation.}
+\label{fig:featabl}
+\end{figure}
 Findings: (i) \textbf{microstructure features help} --- \texttt{micro} and \texttt{all} beat raw LOB, with the
 gain growing with horizon (at k=100 the \texttt{all} set lifts weighted-$F_1$ from 0.569 to 0.637); the effect
 also holds for TLOB ($+0.007$). (ii) \textbf{Raw order counts help only in combination} with the micro scalars
@@ -466,8 +539,9 @@ also holds for TLOB ($+0.007$). (ii) \textbf{Raw order counts help only in combi
 Dhan-unique channel. (iii) \textbf{Book depth beyond level 10 is uninformative} (\texttt{depth80} neutral) ---
 the NSE index-futures signal lives at the top of book. (iv) The features add negligible parameters
 ($68$k\,$\rightarrow$\,$70$k), so MambaLOB stays the efficient model. The separate labelling-threshold study
-(Section~3.6) remains the key \emph{economic} finding. \emph{(Single seed, NIFTY; multi-seed CIs are deferred
-to confirm significance.)}
+(Section~3.6) remains the key \emph{economic} finding. The multi-seed study (Section~3.6,
+Table~\ref{tab:tierc-sig}) confirms this feature-engineering gain is statistically significant
+($p{=}0.001$).
 
 \subsection{Technical Implementation}
 \subsubsection{Tools and Technology Stack}
@@ -535,8 +609,23 @@ in the SOTA range, reaching 92.5\% at $k{=}100$ (the paper's $\sim$92.8 was obta
 
 \subsubsection{Output Visualization and Interpretation}
 We report confusion matrices per (model, horizon), $F_1$-by-horizon line charts, and the efficiency
-scaling curve (Section~3.10). At longer horizons macro and weighted $F_1$ converge as the Stationary class
-shrinks.
+scaling curve (Section~3.10). Figure~\ref{fig:fi2010f1} shows the FI-2010 macro-$F_1$ trend across horizons;
+Figure~\ref{fig:fi2010cm} the DeepLOB confusion matrices at the shortest and longest horizons.
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.66\linewidth]{fi2010_fig_macrof1_by_horizon.png}
+\caption{FI-2010 reproduction: macro-$F_1$ by prediction horizon for the reproduced baselines. The ordering
+and absolute range match the published DeepLOB/TLOB results and the independent LOBCAST reproduction.}
+\label{fig:fi2010f1}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.42\linewidth]{fi2010_cm_deeplob_h10.png}\hfill
+\includegraphics[width=0.42\linewidth]{fi2010_cm_deeplob_h100.png}
+\caption{DeepLOB confusion matrices on FI-2010 at $k{=}10$ (left) and $k{=}100$ (right). At the longer horizon
+the Stationary class shrinks and predictions concentrate on the directional classes.}
+\label{fig:fi2010cm}
+\end{figure}
 
 \subsection{Preliminary Analysis and Observations}
 \subsubsection{Result Analysis and Discussion}
@@ -561,6 +650,14 @@ MambaLOB & 0.52--0.59 & 0.45--0.48 & 0.02--0.17 \\
 \bottomrule
 \end{tabular}
 \end{table}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.66\linewidth]{nse_fig_nse_wf1_by_horizon.png}
+\caption{NSE transfer (Scheme~A): test weighted-$F_1$ by horizon for each model. TLOB leads throughout;
+MambaLOB transfers competitively, matching or beating the CNN baseline on NIFTY at a fraction of the
+parameters.}
+\label{fig:nse}
+\end{figure}
 
 \textbf{TLOB leads across both instruments and all horizons} (lift $\approx$0.25--0.30), mirroring its
 FI-2010 ranking. \textbf{Key transfer finding for the proposed model:} on NIFTY, \emph{MambaLOB (68k
@@ -604,7 +701,15 @@ TLOB (SOTA)           & 1.80M & \textbf{0.666} & \textbf{0.570} & 100\% \\
 \bottomrule
 \end{tabular}
 \end{table}
-\textbf{Honest verdict: an efficiency result, not an accuracy win.} TLOB still leads weighted \emph{and}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.66\linewidth]{architecture_fig_architecture.png}
+\caption{Quality vs.\ model size for the Tier-B architectures (average weighted-$F_1$ against parameter
+count). The Mamba family clusters at the low-parameter end near TLOB's accuracy; ConvMambaLOB is the best of
+the proposed variants. The lower-right region (better-and-smaller) is the design target.}
+\label{fig:archscatter}
+\end{figure}
+\textbf{The result is an efficiency trade-off, not an accuracy win.} TLOB still leads weighted \emph{and}
 macro $F_1$ in every (instrument, horizon) cell; our variants win none, trailing by $\approx$0.06--0.08 wF1.
 The contribution is the trade-off: \textbf{ConvMambaLOB recovers $\sim$90\% of the transformer's quality with
 $12.5\times$ fewer parameters}. Among our own designs the hybrid \emph{spatial-convolution} front-end is the
@@ -663,8 +768,10 @@ side by side.
 \subsubsection{Progress Tracker vs.\ Original Timeline}
 Completed: literature survey; the engineered NSE dataset + pipeline; FI-2010 reproduction (DeepLOB, MLPLOB,
 TLOB); MambaLOB on FI-2010 + efficiency analysis; the \emph{complete} NSE Scheme-A matrix (all four models,
-both instruments, four horizons). Deferred (next phase): Scheme-B confirmatory training, multi-seed
-confidence intervals, and the cost-aware backtest.
+both instruments, four horizons); the Phase-2 microstructure feature ablation (Tier-A), the improved
+architectures (Tier-B), and the multi-seed significance + calibration study (Tier-C). Deferred (next phase):
+hyperparameter optimisation and the class-imbalance study (both implemented as a dual-GPU, S3-resumable
+notebook, pending a final run), Scheme-B confirmatory training, and the cost-aware backtest.
 \subsubsection{Bottlenecks and Delays}
 Free-tier GPU throttling (mitigated by moving from Colab to Kaggle, which has a separate quota); a Kaggle
 P100 incompatible with the latest PyTorch CUDA build (use T4); \texttt{mamba-ssm} failing to build under
@@ -714,6 +821,13 @@ $L$ & TLOB params & TLOB mem / latency & Mamba params & Mamba mem / latency \\
 \bottomrule
 \end{tabular}
 \end{table}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.66\linewidth]{mamba_fig_scaling_tlob_vs_mamba.png}
+\caption{Sequence-length scaling: TLOB's $O(L^2)$ attention versus MambaLOB's $O(L)$ selective scan. The gap
+widens sharply with $L$, the basis of the architecture's efficiency claim.}
+\label{fig:scaling}
+\end{figure}
 \textbf{Headline efficiency result.} MambaLOB's parameter count is constant in $L$ and its
 memory/latency grow \emph{linearly}, while TLOB grows \emph{quadratically}. At $L{=}800$ MambaLOB is
 $\approx$31$\times$ faster, uses $\approx$3.4$\times$ less memory, and has $\approx$750$\times$ fewer
