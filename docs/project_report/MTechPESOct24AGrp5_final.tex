@@ -752,7 +752,7 @@ the four variants; Table~\ref{tab:tierb} reports the mean over both instruments 
 
 \begin{figure}[h]
 \centering
-\resizebox{\textwidth}{!}{%
+\resizebox{0.68\textwidth}{!}{%
 \begin{tikzpicture}[
   font=\footnotesize, >={Stealth[round]}, node distance=3.5mm,
   b/.style={draw, rounded corners=2pt, align=center, minimum height=7mm, minimum width=14mm, fill=blue!5},
@@ -766,22 +766,21 @@ the four variants; Table~\ref{tab:tierb} reports the mean over both instruments 
 \foreach \x/\y in {a0/a1,a1/a2,a2/a3} \draw[->] (\x)--(\y);
 \node[above=1mm of a1, font=\bfseries\scriptsize] {(a) MambaLOB};
 % (b) bidirectional
-\node[io, below=8mm of a0] (b0) {Input};
+\node[io, below=12mm of a0] (b0) {Input};
 \node[b, right=of b0] (b1) {Linear};
 \node[bi, right=of b1] (b2) {BiMamba\\$\times n$};
 \node[b, right=of b2] (b3) {BiN\\+FC};
 \foreach \x/\y in {b0/b1,b1/b2,b2/b3} \draw[->] (\x)--(\y);
 \node[above=1mm of b1, font=\bfseries\scriptsize] {(b) +\,bidirectional};
-\node[below=0.5mm of b2, font=\scriptsize, text width=24mm, align=center] {fwd + reversed\\scan, averaged};
 % (c) conv
-\node[io, below=14mm of b0] (c0) {Input};
+\node[io, below=12mm of b0] (c0) {Input};
 \node[c, right=of c0] (c1) {Conv +\\Inception};
 \node[m, right=of c1] (c2) {Mamba\\$\times n$};
 \node[b, right=of c2] (c3) {BiN\\+FC};
 \foreach \x/\y in {c0/c1,c1/c2,c2/c3} \draw[->] (\x)--(\y);
 \node[above=1mm of c1, font=\bfseries\scriptsize] {(c) ConvMambaLOB};
 % (d) both
-\node[io, below=8mm of c0] (e0) {Input};
+\node[io, below=12mm of c0] (e0) {Input};
 \node[c, right=of e0] (e1) {Conv +\\Inception};
 \node[bi, right=of e1] (e2) {BiMamba\\$\times n$};
 \node[b, right=of e2] (e3) {BiN\\+FC};
