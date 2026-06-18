@@ -75,24 +75,27 @@ Research on deep LOB models is concentrated on developed markets (NASDAQ, Nordic
 futures are highly liquid yet structurally distinct (tick discreteness, regime shifts, distinct liquidity
 profiles), and remain almost entirely unstudied with modern LOB architectures. Index direction is hard to
 predict because the series is non-stationary, exhibits stochastic volatility, and is governed by rapidly
-evolving supply--demand dynamics. Crucially, the LOB evolves in \emph{event time}, not clock time: it
-updates whenever a limit order is placed, a market order executes, an order is cancelled, or a level is
-modified. Most prior deep models resample this irregular stream onto a fixed grid (e.g.\ 1-second
-snapshots), which loses intra-interval dynamics, blurs microstructure reactions, and introduces sampling
-bias. This study targets Indian index futures directly in event time, addressing a clear geographic and
-methodological gap.
+evolving supply--demand dynamics. The underlying LOB evolves in \emph{event time} rather than clock time ---
+it updates whenever a limit order is placed, executed, cancelled, or a level is modified --- and prior deep
+LOB models typically train on coarse fixed-grid snapshots (e.g.\ one-second sampling), which lose
+intra-interval dynamics. We capture NSE depth at the broker's native push cadence ($\approx$2.5\,Hz, a
+$\approx$0.4\,s median inter-update gap; Section~3.2), substantially finer-grained than the one-second
+snapshots common in prior work. We are transparent that this stored stream is a near-regular
+snapshot feed rather than true tick-by-tick event data (a limitation analysed in Section~3.2), so the study's
+principal gap is \emph{geographic}: Indian index futures are highly liquid yet almost entirely unstudied with
+modern LOB architectures.
 
 \subsection{Problem Definition and Scope}
 We predict the direction of the future mid-price over a short horizon from a window of recent LOB states.
 The scope comprises: (i) high-frequency LOB inputs (top-$k$ bid/ask prices and volumes); (ii) construction
-of an event-aligned NSE index-futures dataset; (iii) reproduction of CNN, MLP, and Transformer baselines;
+of a high-cadence, 20-level NSE index-futures dataset; (iii) reproduction of CNN, MLP, and Transformer baselines;
 (iv) a novel selective-SSM architecture (MambaLOB); and (v) multi-horizon, cost-aware evaluation.
 
 \subsection{Research Objectives and Questions}
 \textbf{Objectives.}
 \begin{itemize}[nosep]
   \item Reproduce DeepLOB and TLOB on FI-2010 and validate against published numbers.
-  \item Engineer a reproducible, event-aligned NSE index-futures LOB dataset (NIFTY, BANKNIFTY).
+  \item Engineer a reproducible, high-cadence 20-level NSE index-futures LOB dataset (NIFTY, BANKNIFTY).
   \item Introduce MambaLOB and characterise its accuracy and computational efficiency.
   \item Compare all architectures on identical data, labels, and protocol; quantify transfer to NSE.
 \end{itemize}
