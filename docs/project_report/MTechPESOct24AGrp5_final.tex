@@ -34,14 +34,24 @@
 \noindent We study short-term \emph{index-direction} prediction from Limit Order Book (LOB) data, combining
 a faithful reproduction of three published deep LOB models (DeepLOB, MLPLOB, TLOB) on the public FI-2010
 benchmark with a first-of-its-kind transfer study on \textbf{NSE index futures (NIFTY / BANKNIFTY)}, for
-which we \emph{engineered our own dataset}. We additionally introduce \textbf{MambaLOB}, a selective
-state-space (SSM) architecture, and characterise its efficiency--accuracy trade-off against the
-transformer baseline. A substantial part of the contribution is \textbf{data engineering}: because no
-clean Indian index-futures LOB dataset existed, we reverse-engineered the Dhan binary depth feed, built a
-cloud collection pipeline (EC2 $\rightarrow$ S3), and produced a continuous front-month series with a
-documented preprocessing pipeline that aligns the NSE data to the FI-2010 contract. This document is the
-final interim revision: it reports the reproduction, the engineered NSE benchmark, the architecture
-comparison, and an efficiency analysis, with honest framing of what does and does not transfer.
+which we \emph{engineered our own dataset}. A substantial part of the contribution is \textbf{data
+engineering}: because no clean Indian index-futures LOB dataset existed, we reverse-engineered the
+undocumented Dhan binary depth feed (two packet formats), built a cloud collection pipeline
+(EC2 WebSocket collector $\rightarrow$ daily Parquet $\rightarrow$ S3) with automated token refresh and
+expiry-roll handling, and produced a continuous front-month series through a documented preprocessing
+pipeline that aligns the NSE data to the FI-2010 contract ($\approx$1.1\,M events per instrument).
+
+\noindent On the modelling side we introduce \textbf{MambaLOB}, a selective state-space (SSM) architecture
+with $O(L)$ scaling, and characterise its efficiency--accuracy trade-off against the transformer baseline. We
+then deepen the data-science contribution in three stages: (i) \textbf{microstructure feature engineering}
+(order-flow imbalance, depth imbalance, micro-price, and the Dhan-unique order-count channel), shown to give
+a \emph{statistically significant} accuracy gain; (ii) an improved architecture, \textbf{ConvMambaLOB}, that
+fuses a convolutional spatial front-end with the Mamba core; and (iii) a rigour layer of multi-seed
+confidence intervals, paired significance tests, and probability calibration. The headline finding is honest:
+the SSM models recover $\approx$90\% of the transformer's accuracy at $12$--$25\times$ fewer parameters --- an
+efficiency result, not an accuracy win --- while microstructure features, not architecture, drive the largest
+significant improvement. We report weighted and macro $F_1$ side by side throughout and frame transparently
+what does and does not transfer from the benchmark to the Indian market.
 \end{abstract}
 
 \tableofcontents
@@ -239,6 +249,15 @@ p_{\mathrm{mid}}(t) = \frac{P_1^a(t) + P_1^b(t)}{2}.
 \end{equation}
 The bid--ask spread $S(t) = P_1^a(t) - P_1^b(t)$ measures liquidity (and, importantly for us, transaction
 cost), while per-level depth encodes short-term price pressure.
+
+Two microstructure quantities are central to the feature engineering in Section~3.3. \emph{Order-flow
+imbalance} (OFI; Cont et al.) summarises the net change in bid- versus ask-side liquidity between consecutive
+states and is one of the most robust documented predictors of short-horizon price moves. The \emph{micro-price}
+$p_{\mathrm{micro}} = \frac{V_1^b P_1^a + V_1^a P_1^b}{V_1^a + V_1^b}$ (Stoikov) is a volume-weighted mid that
+leans toward the side with less depth and is often a better instantaneous fair-value estimate than the plain
+mid. \emph{Depth imbalance}, $\frac{V_1^b - V_1^a}{V_1^b + V_1^a}$, captures the same pressure as a normalised
+scalar. These priors --- rather than raw prices alone --- are what the Tier-A features make explicit to the
+models, and they motivate why engineered features help on the weaker NSE signal.
 
 \subsubsection{The Efficient Market Hypothesis and Its Limits}
 The semi-strong EMH implies no excess return from public information, yet high-frequency studies document
@@ -464,12 +483,17 @@ running or deferred are marked accordingly.
 \textbf{FI-2010 (reproduction).} The public NoAuction z-score variant: 5 stocks, 10 days, 10 levels,
 pre-normalized, with standard cross-folds (we use CF\_7: 7 train + 3 test days).
 
-\textbf{NSE index futures (engineered).} We built a live dataset for NIFTY and BANKNIFTY near-month futures
-using the Dhan twenty-level depth feed, stored as daily Parquet on Amazon S3. Key facts: 21 valid trading
-days (12 May -- 12 June 2026), spanning the May$\rightarrow$June expiry roll; $\approx$57{,}000
-events/instrument/day ($\approx$1.1M combined per instrument, exceeding FI-2010's $\approx$400k scale); the
-first 10 of 20 levels give a 40-feature vector identical in layout to FI-2010, so models transfer with no
-architectural change.
+\textbf{NSE index futures (engineered).} We built a live dataset for the NIFTY and BANKNIFTY near-month
+futures (the most liquid index-derivative contracts on the National Stock Exchange of India) using the Dhan
+twenty-level depth feed, stored as daily Parquet on Amazon S3. Because the stored feed is a $\approx$2.5\,Hz
+snapshot stream (Section~3.2), an ``event'' in this work is one recorded top-of-book state, i.e.\ a stored
+depth snapshot, rather than a single exchange message. Key facts: 21 valid trading days (12 May -- 12 June
+2026), spanning the May$\rightarrow$June futures expiry roll; $\approx$57{,}000 events/instrument/day
+($\approx$1.1\,M per instrument, exceeding FI-2010's $\approx$400\,k scale); each record carries 20 bid and
+20 ask levels with price, quantity, \emph{and} order count. Taking the first 10 of the 20 levels and
+reordering to the interleaved $[P^a_i,V^a_i,P^b_i,V^b_i]$ layout yields a 40-feature vector identical to
+FI-2010, so all models transfer to NSE with no architectural change --- the design choice that makes a
+direct benchmark-to-market comparison possible.
 
 \subsubsection{Data Quality Checks}
 We evaluated two Indian data sources before committing. Table~\ref{tab:dhanvskite} summarises the
@@ -647,39 +671,107 @@ Python; PyTorch with \texttt{mamba-ssm}/\texttt{causal-conv1d} (CUDA); scikit-le
 Kite WebSocket APIs; AWS EC2 (collection) and S3 (storage, region \texttt{ap-south-2}); Google Colab and
 Kaggle (GPU training); \texttt{boto3}/\texttt{s3fs}; Matplotlib/Seaborn; Git/GitHub for version control.
 
-\subsubsection{System Setup and Environment Configuration (Data Engineering)}
-Because no clean Indian index-futures LOB dataset existed, the dataset was \emph{engineered end to end}:
-\begin{itemize}[nosep]
-  \item \textbf{Reverse-engineering the Dhan binary feed}: the depth WebSocket emits an undocumented binary
-        packet. We decoded its structure offline --- a 1992-byte full format (40-byte header; 20$\times$16-byte
-        bid then ask records of order-count/price(f64)/qty) and a 664-byte compact format of two 332-byte
-        sub-packets --- fixing byte-offset bugs (bid price at $+4$, not $+0$) and rejecting denormalized
-        near-zero floats from empty levels.
-  \item \textbf{Collection pipeline}: an EC2 (Ubuntu) collector streams 20-level depth during market hours
-        (09:15--15:30 IST), writes daily zstd Parquet, and a cron job syncs to S3 after close.
-  \item \textbf{Production debugging}: corrected the futures segment code (\texttt{NSE\_FNO}); diagnosed a
-        mislabelled-instrument bug caused by a broker token reassignment after a 1:1 bonus issue; handled
-        graceful WebSocket close at market end.
-  \item \textbf{Contract roll}: the May contract expired and collection rolled to the June contract; the
-        loader stitches them into a continuous front-month series with the roll as a segment boundary.
-  \item \textbf{Training environments}: FI-2010 reproduction and Mamba/NSE training run on Colab/Kaggle
-        GPUs; secrets (GitHub PAT, AWS keys, Dhan/Kite tokens) are read host-agnostically; every experiment
-        uploads its results and checkpoints to S3 as it completes (timeout-safe, resumable across sessions).
-\end{itemize}
+Because no clean Indian index-futures LOB dataset existed, the dataset was \emph{engineered end to end}.
+This was the most substantial part of the project and is described in three parts below: decoding the
+broker's binary protocol, building a robust cloud collection service, and operating it reliably across the
+contract-expiry roll.
+
+\paragraph{Reverse-engineering the Dhan binary depth feed.}
+The Dhan twenty-level depth WebSocket delivers market data as an \emph{undocumented binary frame} rather than
+JSON. We decoded its structure offline by capturing raw frames and correlating fields against the live order
+book. The feed uses two frame formats (Table~\ref{tab:packet}): a 1992-byte \emph{full} packet (a 40-byte
+header followed by twenty 16-byte bid records and twenty 16-byte ask records) and a 664-byte \emph{compact}
+packet carrying two 332-byte sub-packets. Each level record packs an order-count, an IEEE-754 double price,
+and a quantity. Decoding surfaced several non-obvious issues that had to be fixed for the data to be usable:
+the bid price sits at byte offset $+4$ within the record (not $+0$, as a naive read assumes); empty levels
+emit \emph{denormalised} near-zero floats that must be rejected rather than parsed as $\approx 0$ prices; and
+quantity/order-count fields can exceed the signed 32-bit range, so the Parquet schema uses \texttt{int64}
+(a \texttt{uint32}/\texttt{int32} choice silently overflows). The parser is greedy --- on an unrecognised
+frame length it advances one byte and re-tries --- which keeps the stream alive through occasional
+malformed packets. Decoding the binary protocol was the single hardest engineering task in the project and
+is what makes the twenty-level Indian dataset possible at all.
+
+\begin{table}[h]
+\centering
+\caption{Decoded Dhan twenty-depth binary frame layout.}
+\label{tab:packet}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Element & Size & Contents \\
+\midrule
+Full frame      & 1992 B & 40 B header $+$ 20 bid records $+$ 20 ask records \\
+Compact frame   & 664 B  & two 332 B sub-packets \\
+Level record    & 16 B   & order-count, price (f64, offset $+4$), quantity \\
+Schema quirk    & ---    & qty / orders stored as \texttt{int64} (\texttt{uint32} overflows) \\
+Empty level     & ---    & denormalised near-zero float $\Rightarrow$ rejected \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Cloud collection architecture.}
+A lightweight EC2 instance (Ubuntu, \texttt{ap-south-2}/Hyderabad) runs an \texttt{asyncio} WebSocket
+collector. It subscribes to the NIFTY and BANKNIFTY near-month futures on the \texttt{NSE\_FNO} segment,
+records \emph{one row per server push} (no polling timer), and buffers rows to a daily \texttt{zstd}-compressed
+Parquet file, flushing in batches to bound memory. Timestamps are stored timezone-aware (parsed with
+\texttt{format=\textquotesingle ISO8601\textquotesingle}, required for pandas~2.x). The collector is gated to
+market hours (09:15--15:30 IST) and tolerates the broker's keepalive-timeout disconnect at the close as a
+normal stop. A cron schedule starts the collector at 09:10 IST (03:40 UTC) and syncs the day's Parquet to S3
+at 15:40 IST (10:10 UTC); only Parquet is synced, keeping the bucket clean. The result is
+$\approx$57{,}000 events/instrument/day at $\approx$2.5\,Hz.
+
+\paragraph{Daily operations, robustness, and the expiry roll.}
+Operating a live feed surfaced realities that a static dataset hides. Broker access tokens expire at
+midnight IST, so a refresh script regenerates the Dhan and Kite tokens each morning before the open. The
+WebSocket reconnects with a backoff on transient drops. Two production bugs were diagnosed and fixed: the
+futures segment code is \texttt{NSE\_FNO} (not \texttt{NSE\_FO}), and an instrument was briefly mislabelled
+after a broker reassigned a security token following a 1:1 bonus issue. The most consequential operational
+event was the \textbf{May$\rightarrow$June contract expiry roll}: the May future expired and stopped trading,
+collection rolled to the June contract, and the broken collection files around the roll (27--29 May) are
+zero-byte and excluded. The loader stitches the May and June contracts into one continuous front-month series
+\emph{by root symbol}, treating the roll (and every overnight gap) as a segment boundary so that no
+window or label ever straddles two contracts.
+
+\paragraph{Training environments.}
+FI-2010 reproduction and the Mamba/NSE experiments run on Google Colab and Kaggle GPUs. Secrets (GitHub PAT,
+AWS keys, broker tokens) are read host-agnostically from Kaggle/Colab secret stores or the environment, so the
+same notebooks run unchanged on either platform. Every experiment uploads its results, metrics JSON, and
+checkpoints to S3 \emph{as each run completes}, making long matrices timeout-safe and resumable across
+sessions --- a session interruption costs at most the single run in flight.
 
 \subsubsection{Modular Code-base Description}
-The repository (\texttt{nse-lob-capstone}) is organised as: \texttt{data\_acquisition/} (Dhan/Kite
-collectors, token refresh, S3 sync, EC2 ops); \texttt{modeling/} (\texttt{fi2010\_dataset.py},
-\texttt{nse\_dataset.py}, \texttt{models.py} [DeepLOB/MLPLOB/MambaLOB], \texttt{tlob.py},
-\texttt{train.py}, \texttt{backtest.py}, \texttt{stats.py}, \texttt{nbenv.py}); \texttt{notebooks/}
-(reproduction, TLOB, Mamba+efficiency, NSE matrix, NSE extras); \texttt{literature/}; and \texttt{docs/}.
-All models consume one data contract, so a single loader/trainer serves both datasets.
+The repository (\texttt{nse-lob-capstone}) separates concerns into clearly bounded modules:
+\begin{itemize}[nosep]
+  \item \texttt{data\_acquisition/} --- the data-engineering layer: \texttt{collect\_dhan.py} (binary parser
+        + collector), \texttt{collect\_kiteconnect.py}, token-refresh, S3-sync, and EC2 operational notes.
+  \item \texttt{modeling/} --- datasets (\texttt{fi2010\_dataset.py}, \texttt{nse\_dataset.py}), models
+        (\texttt{models.py}: DeepLOB/MLPLOB/MambaLOB and the Phase-2 ConvMambaLOB / bidirectional variants;
+        \texttt{tlob.py}: vendored TLOB), engineered features (\texttt{features.py}), losses
+        (\texttt{losses.py}: focal), training/eval (\texttt{train.py}), the unified experiment runner and
+        dual-GPU shard launcher (\texttt{runner.py}, \texttt{run\_shard.py}), HPO worker
+        (\texttt{run\_hpo.py}), statistics (\texttt{stats.py}: seeding + bootstrap CIs), the cost-aware
+        backtest (\texttt{backtest.py}), and a host-agnostic notebook/secret/S3 helper (\texttt{nbenv.py}).
+  \item \texttt{notebooks/} --- one notebook per experiment: FI-2010 reproduction, TLOB, Mamba+efficiency,
+        the NSE Scheme-A matrix and extras, the Tier-A feature ablation (dual-GPU), Tier-B architectures,
+        the Tier-C multi-seed rigour study, the Tier-C HPO\,+\,class-imbalance study, and the standalone EDA
+        notebook. Executed copies and HTML exports live under \texttt{notebooks/from\_kaggle/}.
+  \item \texttt{literature/} (paper notes and survey) and \texttt{docs/} (plans, work log, and this report).
+\end{itemize}
+All models consume one $(B,L,F)$ data contract, so a single loader and trainer serve both FI-2010 and NSE,
+and every model is swappable through a name-keyed registry (\texttt{build\_model}).
 
 \subsection{Baseline Model Development}
 \subsubsection{Baseline Algorithm Description}
-DeepLOB (CNN--Inception--LSTM), MLPLOB (MLP+BiN), and TLOB (dual-attention transformer) are implemented to
-the shared $(B,100,40)\rightarrow[B,3]$ contract; TLOB is vendored faithfully from the official
-implementation.
+All baselines implement the shared $(B,100,40)\rightarrow[B,3]$ contract (Section~2.5, Figure~\ref{fig:baselines})
+so they are directly comparable on identical inputs, labels, and protocol. \textbf{DeepLOB} (Zhang et al.)
+stacks $1\times2$ convolutions that fuse price/volume then the two book sides, a level-fusing convolution, an
+Inception module for multi-scale temporal patterns, and an LSTM; we re-implemented it from the paper.
+\textbf{MLPLOB} (Berti \& Kasneci) flattens the window and applies MLP blocks with Bilinear Normalization,
+serving as the ablation floor that isolates how much temporal structure matters. \textbf{TLOB} (the
+transformer SOTA) alternates temporal and feature self-attention with a progressive MLP head; to guarantee
+fidelity we \emph{vendored} the official implementation into \texttt{modeling/tlob.py}, making it
+self-contained (no external \texttt{einops}/constants) and device-agnostic rather than re-deriving it. This
+faithful-reproduction-first stance is what lets us trust the FI-2010 numbers as a validation of the pipeline
+before introducing the proposed models.
 
 \subsubsection{Training Setup and Parameters}
 Max 50 epochs (FI-2010) / 20 epochs (NSE), early stopping on validation $F_1$; AdamW; class-weighted
