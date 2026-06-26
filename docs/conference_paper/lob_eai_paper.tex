@@ -55,7 +55,7 @@ improvement on the Indian market.
 
 \keywords{Limit Order Book, Mid-price Prediction, State-Space Models, Mamba, Market Microstructure, NSE Index Futures, Deep Learning, Data Engineering}
 
-\fnotetext[1]{Corresponding author. Email: \email{joseph.raj@theporter.in}}
+\fnotetext[1]{Corresponding author. Email: \email{rajjoseph48@gmail.com}}
 
 \maketitle
 
@@ -133,7 +133,35 @@ writes one row per server push to daily \texttt{zstd} Parquet, and a cron job sy
 May contract expired during collection; the loader stitches the May and June contracts into one continuous
 front-month series by root symbol, treating the roll (and every overnight gap) as a segment boundary. The
 result is 21 valid trading days (12 May -- 12 June 2026), $\approx$57{,}000 events/instrument/day
-($\approx$1.1\,M per instrument, exceeding FI-2010's $\approx$400\,k scale).
+($\approx$1.1\,M per instrument, exceeding FI-2010's $\approx$400\,k scale). Figure~\ref{fig:pipeline}
+summarises the end-to-end data-engineering flow.
+
+\begin{figure*}[t]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\footnotesize, >={Stealth[round]}, node distance=6mm,
+  stage/.style={draw, rounded corners=2pt, align=center, minimum height=9mm, minimum width=23mm},
+  acq/.style={stage, fill=orange!10}, store/.style={stage, fill=blue!8},
+  prep/.style={stage, fill=green!8}, result/.style={stage, fill=gray!10}]
+\node[acq] (dhan) {Dhan WebSocket\\binary depth feed};
+\node[acq, right=of dhan] (ec2) {EC2 collector\\(parse 1992/664\,B)};
+\node[store, right=of ec2] (s3) {S3 daily\\Parquet};
+\node[prep, right=of s3] (stitch) {Front-month\\stitch + clean};
+\node[prep, right=of stitch] (seg) {Per-day segment\\+ z-score (train)};
+\node[prep, right=of seg] (lab) {Label + lazy\\windows};
+\node[result, right=of lab] (ds) {Train / Val /\\Test tensors};
+\draw[->] (dhan)--(ec2); \draw[->] (ec2)--(s3); \draw[->] (s3)--(stitch);
+\draw[->] (stitch)--(seg); \draw[->] (seg)--(lab); \draw[->] (lab)--(ds);
+\node[font=\scriptsize, above=0.5mm of ec2] {cron 09:10 IST};
+\node[font=\scriptsize, below=0.5mm of s3] {region ap-south-2};
+\end{tikzpicture}}
+\caption{Engineered NSE data pipeline. The reverse-engineered Dhan binary feed (1992\,B full / 664\,B compact
+frames) is parsed on an EC2 collector and written as daily Parquet to S3; the modelling layer then stitches
+the front-month series across the expiry roll, cleans, segments per trading day, z-scores on training
+statistics, labels, and emits lazily-windowed tensors aligned to FI-2010.}
+\label{fig:pipeline}
+\end{figure*}
 
 \subsection{Preprocessing and labelling}
 The pipeline (i) stitches the front-month series, (ii) reorders Dhan's columns to the interleaved FI-2010
@@ -153,17 +181,90 @@ $p_{\mathrm{micro}}=\tfrac{V_1^b P_1^a + V_1^a P_1^b}{V_1^a+V_1^b}$, relative sp
 
 \subsection{Models}
 All models share a $(B,100,40)\!\rightarrow\!\mathbb{R}^3$ contract and are compared under one protocol. We
-reproduce three baselines (Figure~\ref{fig:arch}): \textbf{DeepLOB} (CNN+Inception+LSTM)~\cite{deeplob},
+reproduce three baselines (Figure~\ref{fig:baselines}): \textbf{DeepLOB} (CNN+Inception+LSTM)~\cite{deeplob},
 \textbf{MLPLOB} (MLP + Bilinear Normalization, the ablation floor), and \textbf{TLOB} (dual-attention
-transformer, the SOTA reference, vendored faithfully)~\cite{tlob}. The proposed \textbf{MambaLOB} projects the
-LOB window to $d_{\mathrm{model}}$ and applies $n$ selective state-space blocks realising an input-dependent
-linear recurrence
+transformer, the SOTA reference, vendored faithfully)~\cite{tlob}.
+
+\begin{figure*}[t]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\footnotesize, >={Stealth[round]}, node distance=4mm,
+  b/.style={draw, rounded corners=2pt, align=center, minimum height=8mm, minimum width=17mm, fill=blue!5},
+  io/.style={b, fill=gray!10}, conv/.style={b, fill=orange!10}, attn/.style={b, fill=purple!8},
+  rec/.style={b, fill=green!8}]
+\node[io] (d0) {Input\\$(B,100,40)$};
+\node[conv, right=of d0] (d1) {Conv2d\\$1{\times}2,s2$};
+\node[conv, right=of d1] (d2) {$2{\times}$Conv2d\\$4{\times}1$};
+\node[conv, right=of d2] (d3) {Inception};
+\node[rec, right=of d3] (d4) {LSTM\\$h{=}64$};
+\node[io, right=of d4] (d5) {FC\\$\to 3$};
+\foreach \a/\b in {d0/d1,d1/d2,d2/d3,d3/d4,d4/d5} \draw[->] (\a)--(\b);
+\node[left=1mm of d0, font=\bfseries] {DeepLOB};
+\node[io, below=9mm of d0] (m0) {Input\\$(B,100,40)$};
+\node[b, right=of m0] (m1) {Flatten};
+\node[b, right=of m1] (m2) {Linear 128\\+ GELU};
+\node[b, right=of m2] (m3) {Linear 128\\+ GELU};
+\node[b, right=of m3] (m4) {BiN};
+\node[io, right=of m4] (m5) {FC\\$\to 3$};
+\foreach \a/\b in {m0/m1,m1/m2,m2/m3,m3/m4,m4/m5} \draw[->] (\a)--(\b);
+\node[left=1mm of m0, font=\bfseries] {MLPLOB};
+\node[io, below=9mm of m0] (t0) {Input\\$(B,100,40)$};
+\node[b, right=of t0] (t1) {Linear proj\\+ pos.\ emb};
+\node[attn, right=of t1] (t2) {$4{\times}$\,[Temporal\\Attn]};
+\node[attn, right=of t2] (t3) {$4{\times}$\,[Feature\\Attn]};
+\node[b, right=of t3] (t4) {MLP\\head};
+\node[io, right=of t4] (t5) {FC\\$\to 3$};
+\foreach \a/\b in {t0/t1,t1/t2,t2/t3,t3/t4,t4/t5} \draw[->] (\a)--(\b);
+\node[left=1mm of t0, font=\bfseries] {TLOB};
+\end{tikzpicture}}
+\caption{Reproduced baseline architectures, all sharing the $(B,100,40)\!\to\!3$ contract: DeepLOB
+(CNN+Inception+LSTM), MLPLOB (flatten+MLP with Bilinear Normalization, the ablation floor), and TLOB
+(alternating temporal and feature self-attention, the transformer SOTA).}
+\label{fig:baselines}
+\end{figure*}
+
+The proposed \textbf{MambaLOB} (Figure~\ref{fig:arch}) projects the LOB window to $d_{\mathrm{model}}$ and
+applies $n$ selective state-space blocks (Figure~\ref{fig:mambablock}) realising an input-dependent linear
+recurrence
 \begin{equation}
 h_t = \bar{A}_t\,h_{t-1} + \bar{B}_t\,x_t, \qquad y_t = C_t\,h_t,
 \end{equation}
 where $\bar A,\bar B,C$ depend on the input (the selection mechanism), giving $O(L)$ time and memory and a
 parameter count independent of $L$. \textbf{ConvMambaLOB} prepends DeepLOB's convolutional spatial front-end
 to the Mamba core, replacing the sequential LSTM with the selective SSM.
+
+\begin{figure}[t]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  font=\footnotesize, >={Stealth[round]}, node distance=4.5mm,
+  b/.style={draw, rounded corners=2pt, align=center, minimum height=8mm, minimum width=14mm, fill=green!8},
+  op/.style={draw, circle, inner sep=1pt, fill=yellow!20}, io/.style={b, fill=gray!10}]
+\node[io] (x) {$x$};
+\node[b, right=of x] (norm) {Layer\\Norm};
+\node[b, right=of norm] (inproj) {in\_proj};
+\node[b, above right=2mm and 6mm of inproj] (conv) {Conv1d};
+\node[b, right=of conv] (silu) {SiLU};
+\node[b, right=of silu] (scan) {selective\\scan};
+\node[op, right=7mm of scan] (gate) {$\odot$};
+\node[b, below=8mm of gate] (z) {SiLU$(z)$};
+\node[b, right=of gate] (outproj) {out\_proj};
+\node[op, right=5mm of outproj] (add) {$+$};
+\node[io, right=4mm of add] (y) {$y$};
+\draw[->] (x)--(norm); \draw[->] (norm)--(inproj);
+\draw[->] (inproj.east) -- ++(3mm,0) |- (conv.west);
+\draw[->] (inproj.east) -- ++(3mm,0) |- (z.west) node[midway,below,font=\scriptsize]{$z$};
+\draw[->] (conv)--(silu); \draw[->] (silu)--(scan); \draw[->] (scan)--(gate);
+\draw[->] (z)--(gate); \draw[->] (gate)--(outproj); \draw[->] (outproj)--(add); \draw[->] (add)--(y);
+\draw[->] (x.south) |- ++(0,-13mm) -| (add.south) node[near start,below,font=\scriptsize]{residual};
+\end{tikzpicture}}
+\caption{The selective state-space (Mamba) block: the input is normalised and split into two streams; one
+passes a depthwise causal convolution and SiLU into the selective scan (input-dependent $\bar A,\bar B,C$),
+the other forms the SiLU gate. The gated output is projected back and added to the residual; the scan is the
+only sequential step and runs in $O(L)$.}
+\label{fig:mambablock}
+\end{figure}
 
 \begin{figure}[t]
 \centering
@@ -252,11 +353,21 @@ on NIFTY at a fraction of the parameters.}
 \end{figure}
 
 \subsection{Feature engineering and improved architectures}
-Microstructure feature engineering helps: the \texttt{all} set lifts MambaLOB's weighted $F_1$ by up to
-$+0.068$ at $k{=}100$, with the gain growing with horizon, while deep levels and order counts \emph{alone} do
-not help in isolation. For architecture (Table~\ref{tab:arch}, Figure~\ref{fig:scatter}), ConvMambaLOB is the
-best of the proposed variants, but no Mamba variant beats TLOB on accuracy. The contribution is the
-trade-off: \textbf{ConvMambaLOB recovers $\sim$90\% of TLOB's quality with $12.5\times$ fewer parameters}.
+Microstructure feature engineering helps (Figure~\ref{fig:featabl}): the \texttt{all} set lifts MambaLOB's
+weighted $F_1$ by up to $+0.068$ at $k{=}100$, with the gain growing with horizon, while deep levels and order
+counts \emph{alone} do not help in isolation. For architecture (Table~\ref{tab:arch}, Figure~\ref{fig:scatter}),
+ConvMambaLOB is the best of the proposed variants, but no Mamba variant beats TLOB on accuracy. The
+contribution is the trade-off: \textbf{ConvMambaLOB recovers $\sim$90\% of TLOB's quality with $12.5\times$
+fewer parameters}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{img/figures/feature_ablation_fig_feature_ablation.png}
+\caption{Feature ablation (MambaLOB, NIFTY): weighted $F_1$ by feature set and horizon. The engineered
+\texttt{micro} and \texttt{all} sets sit above the raw \texttt{base40}, with the gain widening at the longer
+horizon; deep levels and order counts in isolation do not help.}
+\label{fig:featabl}
+\end{figure}
 
 \begin{table}[t]
 \centering\footnotesize
