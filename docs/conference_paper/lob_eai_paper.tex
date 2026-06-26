@@ -177,14 +177,14 @@ to the Mamba core, replacing the sequential LSTM with the selective SSM.
 \node[b,right=of a2](a3){BiN};
 \node[io,right=of a3](a4){FC$\to3$};
 \foreach \x/\y in {a0/a1,a1/a2,a2/a3,a3/a4} \draw[->](\x)--(\y);
-\node[io,below=8mm of a0](e0){Input};
+\node[above=1mm of a2,font=\scriptsize\bfseries]{(a) MambaLOB};
+\node[io,below=10mm of a0](e0){Input};
 \node[c,right=of e0](e1){Conv +\\Inception};
 \node[m,right=of e1](e2){Mamba\\$\times n$};
 \node[b,right=of e2](e3){BiN};
 \node[io,right=of e3](e4){FC$\to3$};
 \foreach \x/\y in {e0/e1,e1/e2,e2/e3,e3/e4} \draw[->](\x)--(\y);
-\node[left=1mm of a0,font=\scriptsize\bfseries,rotate=90,anchor=south]{MambaLOB};
-\node[left=1mm of e0,font=\scriptsize\bfseries,rotate=90,anchor=south]{ConvMambaLOB};
+\node[above=1mm of e2,font=\scriptsize\bfseries]{(b) ConvMambaLOB};
 \end{tikzpicture}}
 \caption{Proposed architectures. MambaLOB applies $n$ selective state-space blocks for $O(L)$ temporal mixing;
 ConvMambaLOB prepends a convolutional spatial front-end before the Mamba core.}
