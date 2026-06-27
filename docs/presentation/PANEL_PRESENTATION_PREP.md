@@ -14,13 +14,14 @@ person's actual contribution — Joseph on Data Engineering reflects his role; t
 
 | Presenter | Slides | Block | Hand-off cue |
 |---|---|---|---|
-| **1 · Sumanth G M** | 1–5 | Title, Overview/Abstract, Motivation, Objectives/RQs, Related Work | "…now Joseph on how we built the dataset." |
-| **2 · Joseph Raj** | 6–9 | **Data Engineering**, Datasets, EDA, Preprocessing | "…over to Abhishek for the models." |
-| **3 · Abhishek Kumar** | 10–12 | Models, FI-2010 Reproduction, NSE Transfer | "…Raghav will cover our Phase-2 studies." |
-| **4 · R Raghav Srivatsav** | 13–15 | Tier A (features), Tier B (architectures), Tier C (rigour) | "…Kumar Swamy on efficiency and conclusions." |
-| **5 · Kumar Swamy C** | 16–18 | Efficiency, Conclusion & Future Work, Q&A | Opens Q&A for the whole team. |
+| **1 · R Raghav Srivatsav** | 1–5 | Title, Overview/Abstract, Motivation, Objectives/RQs, Related Work | "…now Kumar on how we built the dataset." |
+| **2 · Kumar Swamy C** | 6–9 | **Data Engineering**, Datasets, EDA, Preprocessing | "…over to Sumanth for the models." |
+| **3 · Sumanth G M** | 10–12 | Models, FI-2010 Reproduction, NSE Transfer | "…Joseph will cover our Phase-2 studies." |
+| **4 · Joseph Raj** | 13–15 | Tier A (features), Tier B (architectures), Tier C (rigour) | "…Abhishek on efficiency and conclusions." |
+| **5 · Abhishek Kumar** | 16–18 | Efficiency, Conclusion & Future Work, Q&A | Opens Q&A for the whole team. |
 
-Roughly even (5/4/3/3/3 slides). In Q&A, route each question to the owner of that block (see the ⭐ topics in
+Roughly even (5/4/3/3/3 slides). **Q&A note:** Joseph built the data engineering — route deep DE questions to
+him even though Kumar presents that block. In Q&A, route each question to the owner of that block (see the ⭐ topics in
 Part 2). Rehearse the four handoffs so transitions are smooth.
 
 ## The one-paragraph story (your elevator pitch)
