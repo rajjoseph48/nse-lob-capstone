@@ -14,13 +14,13 @@ person's actual contribution — Joseph on Data Engineering reflects his role; t
 
 | Presenter | Slides | Block | Hand-off cue |
 |---|---|---|---|
-| **1 · Sumanth G M** | 1–4 | Intro, Motivation, Objectives/RQs, Related Work | "…now Joseph on how we built the dataset." |
-| **2 · Joseph Raj** | 5–8 | **Data Engineering**, Datasets, EDA, Preprocessing | "…over to Abhishek for the models." |
-| **3 · Abhishek Kumar** | 9–11 | Models, FI-2010 Reproduction, NSE Transfer | "…Raghav will cover our Phase-2 studies." |
-| **4 · R Raghav Srivatsav** | 12–14 | Tier A (features), Tier B (architectures), Tier C (rigour) | "…Kumar Swamy on efficiency and conclusions." |
-| **5 · Kumar Swamy C** | 15–17 | Efficiency, Conclusion & Future Work, Q&A | Opens Q&A for the whole team. |
+| **1 · Sumanth G M** | 1–5 | Title, Overview/Abstract, Motivation, Objectives/RQs, Related Work | "…now Joseph on how we built the dataset." |
+| **2 · Joseph Raj** | 6–9 | **Data Engineering**, Datasets, EDA, Preprocessing | "…over to Abhishek for the models." |
+| **3 · Abhishek Kumar** | 10–12 | Models, FI-2010 Reproduction, NSE Transfer | "…Raghav will cover our Phase-2 studies." |
+| **4 · R Raghav Srivatsav** | 13–15 | Tier A (features), Tier B (architectures), Tier C (rigour) | "…Kumar Swamy on efficiency and conclusions." |
+| **5 · Kumar Swamy C** | 16–18 | Efficiency, Conclusion & Future Work, Q&A | Opens Q&A for the whole team. |
 
-Roughly even (4/4/3/3/3 slides). In Q&A, route each question to the owner of that block (see the ⭐ topics in
+Roughly even (5/4/3/3/3 slides). In Q&A, route each question to the owner of that block (see the ⭐ topics in
 Part 2). Rehearse the four handoffs so transitions are smooth.
 
 ## The one-paragraph story (your elevator pitch)
@@ -40,7 +40,8 @@ Memorize that. Every answer should ladder back to it.
 ## PART 1 — Slide-by-slide talking points
 
 1. **Title** — names, "MTech DSAI capstone, PES." One line: "index-direction prediction from LOB data, with an engineered Indian-market dataset."
-2. **Motivation** — LOB has microstructure signal; prior work is all developed-markets/FI-2010; Indian index futures unstudied; *no dataset existed* → we built one.
+2. **Background & Overview (abstract)** — what a LOB is; the deep-LOB progression (DeepLOB → TLOB → Mamba); it's all developed-markets; one-breath project abstract; roadmap. Keep high-level — the detailed survey is the Related Work slide.
+3. **Motivation** — LOB has microstructure signal; prior work is all developed-markets/FI-2010; Indian index futures unstudied; *no dataset existed* → we built one.
 3. **Objectives/RQs** — engineer dataset; reproduce baselines; propose MambaLOB; quantify transfer; ask "is a linear-time SSM competitive at lower compute?" and "do microstructure features help?"
 4. **Related work** — FI-2010 (benchmark), DeepLOB (CNN+LSTM), TLOB (SOTA transformer), Mamba/S4 (SSMs), LOBCAST (models overfit FI-2010), Cont/Stoikov (microstructure priors).
 5. **Data engineering (your strongest slide)** — reverse-engineered Dhan binary feed (1992 B/664 B frames), fixed decode bugs, EC2→Parquet→S3 with cron + token refresh, front-month stitching across the expiry roll. ~1.1 M events/instrument.
