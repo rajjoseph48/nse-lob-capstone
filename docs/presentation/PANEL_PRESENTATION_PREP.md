@@ -7,6 +7,22 @@
 
 ---
 
+## Presentation split — 5 presenters
+Each presenter owns one thematic block (so handoffs are clean and "what did you do" lines up). The same
+assignment + a delivery cue is in each slide's **speaker notes** (presenter view). Swap names to match each
+person's actual contribution — Joseph on Data Engineering reflects his role; the rest are suggestions.
+
+| Presenter | Slides | Block | Hand-off cue |
+|---|---|---|---|
+| **1 · Sumanth G M** | 1–4 | Intro, Motivation, Objectives/RQs, Related Work | "…now Joseph on how we built the dataset." |
+| **2 · Joseph Raj** | 5–8 | **Data Engineering**, Datasets, EDA, Preprocessing | "…over to Abhishek for the models." |
+| **3 · Abhishek Kumar** | 9–11 | Models, FI-2010 Reproduction, NSE Transfer | "…Raghav will cover our Phase-2 studies." |
+| **4 · R Raghav Srivatsav** | 12–14 | Tier A (features), Tier B (architectures), Tier C (rigour) | "…Kumar Swamy on efficiency and conclusions." |
+| **5 · Kumar Swamy C** | 15–17 | Efficiency, Conclusion & Future Work, Q&A | Opens Q&A for the whole team. |
+
+Roughly even (4/4/3/3/3 slides). In Q&A, route each question to the owner of that block (see the ⭐ topics in
+Part 2). Rehearse the four handoffs so transitions are smooth.
+
 ## The one-paragraph story (your elevator pitch)
 "We tackle short-horizon mid-price direction prediction from limit-order-book data. Because no clean Indian
 index-futures LOB dataset existed, we **engineered one end-to-end** — reverse-engineering the Dhan binary feed
