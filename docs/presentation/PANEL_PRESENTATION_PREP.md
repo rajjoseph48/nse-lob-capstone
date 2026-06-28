@@ -16,11 +16,12 @@ person's actual contribution — Joseph on Data Engineering reflects his role; t
 |---|---|---|---|
 | **1 · R Raghav Srivatsav** | 1–5 | Title, Overview/Abstract, Motivation, Objectives/RQs, Related Work | "…now Kumar on how we built the dataset." |
 | **2 · Kumar Swamy C** | 6–9 | **Data Engineering**, Datasets, EDA, Preprocessing | "…over to Sumanth for the models." |
-| **3 · Sumanth G M** | 10–12 | Models, FI-2010 Reproduction, NSE Transfer | "…Joseph will cover our Phase-2 studies." |
-| **4 · Joseph Raj** | 13–15 | Tier A (features), Tier B (architectures), Tier C (rigour) | "…Abhishek on efficiency and conclusions." |
+| **3 · Sumanth G M** | 10–11 | Models, FI-2010 Reproduction | "…Joseph will take the NSE results and our Phase-2 work." |
+| **4 · Joseph Raj** | 12–15 | NSE Transfer, Tier A (features), Tier B (architectures), Tier C (rigour) | "…Abhishek on efficiency and conclusions." |
 | **5 · Abhishek Kumar** | 16–18 | Efficiency, Conclusion & Future Work, Q&A | Opens Q&A for the whole team. |
 
-Roughly even (5/4/3/3/3 slides). **Q&A note:** Joseph built the data engineering — route deep DE questions to
+Slide counts 5/4/2/4/3. (Sumanth's two slides are content-dense — Models + reproduction. NSE transfer
+moves to Joseph so it flows straight into his Phase-2 improvements.) **Q&A note:** Joseph built the data engineering — route deep DE questions to
 him even though Kumar presents that block. In Q&A, route each question to the owner of that block (see the ⭐ topics in
 Part 2). Rehearse the four handoffs so transitions are smooth.
 
